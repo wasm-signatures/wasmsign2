@@ -1,137 +1,379 @@
-use anyhow::{anyhow, bail, ensure, Error};
-use io::BufWriter;
+#[macro_use]
+extern crate clap;
+
+mod error;
+mod sig_sections;
+mod varint;
+mod wasm_module;
+
+use error::*;
+use sig_sections::*;
+use wasm_module::*;
+
+use clap::Arg;
+use ct_codecs::{Encoder, Hex};
+use hmac_sha256::Hash;
+use std::collections::HashSet;
 use std::fs::File;
-use std::io::{self, prelude::*, BufReader};
+use std::io::prelude::*;
 use std::str;
 
-#[derive(Debug, thiserror::Error)]
-pub enum WSError {
-    #[error("Internal error: [{0}]")]
-    InternalError(String),
-    #[error("Parse error")]
-    ParseError,
-    #[error("I/O error")]
-    IOError(#[from] io::Error),
-    #[error("EOF")]
-    UTF8Error(#[from] std::str::Utf8Error),
-    #[error("UTF-8 error")]
-    Eof,
+const SIGNATURE_DOMAIN: &str = "wasmsig";
+const SIGNATURE_VERSION: u8 = 0x01;
+const SIGNATURE_HASH_FUNCTION: u8 = 0x01;
+
+struct PublicKey {
+    pk: ed25519_compact::PublicKey,
 }
 
-fn varint_get7<R: Read>(reader: &mut BufReader<R>) -> Result<u8, WSError> {
-    let mut v: u8 = 0;
-    for i in 0..1 {
-        let mut byte = [0u8; 1];
-        if let Err(e) = reader.read_exact(&mut byte) {
-            return Err(if e.kind() == io::ErrorKind::UnexpectedEof {
-                WSError::Eof
-            } else {
-                e.into()
-            });
-        };
-        v |= ((byte[0] & 0x7f) as u8) << (i * 7);
-        if (byte[0] & 0x80) == 0 {
-            return Ok(v);
-        }
-    }
-    Err(WSError::ParseError)
-}
-
-fn varint_get32<R: Read>(reader: &mut BufReader<R>) -> Result<u32, WSError> {
-    let mut v: u32 = 0;
-    for i in 0..5 {
-        let mut byte = [0u8; 1];
-        reader.read_exact(&mut byte)?;
-        v |= ((byte[0] & 0x7f) as u32) << (i * 7);
-        if (byte[0] & 0x80) == 0 {
-            return Ok(v);
-        }
-    }
-    Err(WSError::ParseError)
-}
-
-#[derive(Debug, Clone)]
-struct Section {
-    pub id: u8,
-    pub payload: Vec<u8>,
-}
-
-#[derive(Debug, Clone)]
-struct CustomSection {
-    pub name: String,
-    pub payload: Vec<u8>,
-}
-
-impl Section {
-    pub fn custom_section_get(&self) -> Result<CustomSection, WSError> {
-        if self.id != 0 {
-            return Err(WSError::ParseError);
-        }
-        let mut reader = BufReader::new(io::Cursor::new(&self.payload));
-        let name_len = varint_get32(&mut reader)? as usize;
-        let mut name_slice = vec![0u8; name_len];
-        reader.read_exact(&mut name_slice)?;
-        let name = str::from_utf8(&name_slice)?.to_string();
-        let mut payload = Vec::new();
-        let len = reader.read_to_end(&mut payload)?;
-        payload.truncate(len);
-        Ok(CustomSection { name, payload })
+impl PublicKey {
+    fn from_file(file: &str) -> Result<Self, WSError> {
+        let mut fp = File::open(file)?;
+        let mut bytes = Vec::new();
+        fp.read_to_end(&mut bytes)?;
+        let pk = ed25519_compact::PublicKey::from_slice(&bytes)?;
+        Ok(PublicKey { pk })
     }
 
-    pub fn type_to_string(&self) -> Result<String, WSError> {
-        match self.id {
-            0 => {
-                let custom_section = self.custom_section_get()?;
-                Ok(format!("custom section: [{}]", custom_section.name))
+    fn to_file(&self, file: &str) -> Result<(), WSError> {
+        let mut fp = File::create(file)?;
+        fp.write_all(&*self.pk)?;
+        Ok(())
+    }
+}
+
+struct SecretKey {
+    sk: ed25519_compact::SecretKey,
+}
+
+impl SecretKey {
+    fn from_file(file: &str) -> Result<Self, WSError> {
+        let mut fp = File::open(file)?;
+        let mut bytes = Vec::new();
+        fp.read_to_end(&mut bytes)?;
+        let sk = ed25519_compact::SecretKey::from_slice(&bytes)?;
+        Ok(SecretKey { sk })
+    }
+
+    fn to_file(&self, file: &str) -> Result<(), WSError> {
+        let mut fp = File::create(file)?;
+        fp.write_all(&*self.sk)?;
+        Ok(())
+    }
+}
+
+struct KeyPair {
+    pk: PublicKey,
+    sk: SecretKey,
+}
+
+impl KeyPair {
+    fn generate() -> Self {
+        let kp = ed25519_compact::KeyPair::from_seed(ed25519_compact::Seed::generate());
+        KeyPair {
+            pk: PublicKey { pk: kp.pk },
+            sk: SecretKey { sk: kp.sk },
+        }
+    }
+}
+
+fn show(file: &str, verbose: bool) -> Result<(), WSError> {
+    let module = Module::parse(file)?;
+    for (idx, section) in module.sections.iter().enumerate() {
+        println!("{}:\t{}", idx, section.type_to_string(verbose)?);
+    }
+    Ok(())
+}
+
+fn delimiter_section() -> Result<Section, WSError> {
+    let mut custom_payload = vec![0u8; 16];
+    getrandom::getrandom(&mut custom_payload)
+        .map_err(|_| WSError::InternalError("RNG error".to_string()))?;
+    CustomSection {
+        name: SIGNATURE_SECTION_DELIMITER_NAME.to_string(),
+        custom_payload,
+    }
+    .to_section()
+}
+
+fn build_header_section(sk: &SecretKey, hashes: Vec<Vec<u8>>) -> Result<Section, WSError> {
+    let mut msg: Vec<u8> = Vec::new();
+    msg.extend_from_slice(SIGNATURE_DOMAIN.as_bytes());
+    msg.extend_from_slice(&[SIGNATURE_VERSION, SIGNATURE_HASH_FUNCTION]);
+    for hash in &hashes {
+        msg.extend_from_slice(&hash);
+    }
+
+    println!("* Adding signature:\n");
+
+    println!(
+        "sig = Ed25519(sk, \"{}\" ‖ {:02x} ‖ {:02x} ‖ {})\n",
+        SIGNATURE_DOMAIN,
+        SIGNATURE_VERSION,
+        SIGNATURE_HASH_FUNCTION,
+        Hex::encode_to_string(&msg[SIGNATURE_DOMAIN.len() + 2..]).unwrap()
+    );
+
+    let signature = sk.sk.sign(msg, None).to_vec();
+
+    println!("    = {}\n\n", Hex::encode_to_string(&signature).unwrap());
+
+    let signature_for_hashes = SignatureForHashes {
+        key_id: None,
+        signature,
+    };
+    let mut signatures = Vec::new();
+    signatures.push(signature_for_hashes);
+    let signed_parts = SignedParts { hashes, signatures };
+    let mut signed_parts_set = Vec::new();
+    signed_parts_set.push(signed_parts);
+    let header_payload = HeaderPayload {
+        specification_version: SIGNATURE_VERSION,
+        hash_function: SIGNATURE_HASH_FUNCTION,
+        signed_parts_set,
+    };
+    let header_payload_bin = bincode::serialize(&header_payload).unwrap();
+
+    let header_section = CustomSection {
+        name: SIGNATURE_SECTION_HEADER_NAME.to_string(),
+        custom_payload: header_payload_bin,
+    }
+    .to_section()?;
+
+    Ok(header_section)
+}
+
+fn sign(
+    sk: &SecretKey,
+    in_file: &str,
+    out_file: &str,
+    splits: Option<Vec<usize>>,
+) -> Result<(), WSError> {
+    let splits = splits.unwrap_or_default();
+
+    let mut module = Module::parse(in_file)?;
+    let mut hasher = Hash::new();
+    let mut hashes = Vec::new();
+
+    let mut out_sections = Vec::new();
+    let header_section = CustomSection {
+        name: "".to_string(),
+        custom_payload: Vec::new(),
+    }
+    .to_section()?;
+    out_sections.push(header_section);
+
+    let mut splits_cursor = splits.iter();
+    let mut next_split = splits_cursor.next();
+    for (idx, section) in module.sections.iter().enumerate() {
+        if section.is_signature_header()? {
+            println!("A signature section was already present.");
+            if idx != 0 {
+                println!("WARNING: the signature section was not the first module section.")
             }
-            1 => Ok("type section".to_string()),
-            2 => Ok("import section".to_string()),
-            3 => Ok("function section".to_string()),
-            4 => Ok("table section".to_string()),
-            5 => Ok("memory section".to_string()),
-            6 => Ok("global section".to_string()),
-            7 => Ok("export section".to_string()),
-            8 => Ok("start section".to_string()),
-            9 => Ok("element section".to_string()),
-            10 => Ok("code section".to_string()),
-            11 => Ok("data section".to_string()),
-            _ => {
-                dbg!(self.id);
-                Err(WSError::ParseError)
+            continue;
+        }
+        if Some(&idx) == next_split {
+            let delimiter = delimiter_section()?;
+            hasher.update(&delimiter.payload);
+            out_sections.push(delimiter);
+            hashes.push(hasher.finalize().to_vec());
+            hasher = Hash::new();
+            next_split = splits_cursor.next();
+        }
+        hasher.update(&section.payload);
+        out_sections.push(section.clone());
+    }
+    if !splits.is_empty() {
+        let delimiter = delimiter_section()?;
+        hasher.update(&delimiter.payload);
+        out_sections.push(delimiter);
+    }
+    hashes.push(hasher.finalize().to_vec());
+
+    let header_section = build_header_section(sk, hashes)?;
+    out_sections[0] = header_section;
+    module.sections = out_sections;
+    module.serialize(out_file)?;
+    Ok(())
+}
+
+fn verify(pk: &PublicKey, in_file: &str) -> Result<(), WSError> {
+    let module = Module::parse(in_file)?;
+    let mut sections = module.sections.iter().enumerate();
+    let (_, signature_header) = sections.next().ok_or(WSError::ParseError)?;
+    if !signature_header.is_signature_header()? {
+        println!("This module is not signed");
+        return Ok(());
+    }
+    let header_payload = signature_header.get_signature_header_payload()?;
+    if header_payload.specification_version != SIGNATURE_VERSION {
+        println!(
+            "Unsupported specification version: {:02x}",
+            header_payload.specification_version
+        );
+        return Err(WSError::ParseError);
+    }
+    if header_payload.hash_function != SIGNATURE_HASH_FUNCTION {
+        println!(
+            "Unsupported hash function: {:02x}",
+            header_payload.specification_version
+        );
+        return Err(WSError::ParseError);
+    }
+
+    let mut valid_hashes = HashSet::new();
+    let signed_parts_set = header_payload.signed_parts_set;
+    for signed_part in &signed_parts_set {
+        let mut msg: Vec<u8> = Vec::new();
+        msg.extend_from_slice(SIGNATURE_DOMAIN.as_bytes());
+        msg.extend_from_slice(&[SIGNATURE_VERSION, SIGNATURE_HASH_FUNCTION]);
+        let hashes = &signed_part.hashes;
+        for hash in hashes {
+            msg.extend_from_slice(&hash);
+        }
+        for signature in &signed_part.signatures {
+            if pk
+                .pk
+                .verify(
+                    &msg,
+                    &ed25519_compact::Signature::from_slice(&signature.signature)?,
+                )
+                .is_err()
+            {
+                continue;
+            }
+            println!(
+                "Hash signature is valid for key [{}]",
+                Hex::encode_to_string(&*pk.pk).unwrap()
+            );
+            for hash in hashes {
+                valid_hashes.insert(hash);
             }
         }
     }
-}
-
-fn doit() -> Result<(), WSError> {
-    let file = "/tmp/z.wasm";
-    let fp = File::open(file)?;
-    let mut reader = BufReader::new(fp);
-    let mut header = [0u8; 8];
-    reader.read_exact(&mut header)?;
-
-    let file_out = "/tmp/z2.wasm";
-    let fp2 = File::create(file_out)?;
-    let mut writer = BufWriter::new(fp2);
-
-    let mut sections = Vec::new();
-    loop {
-        let id = match varint_get7(&mut reader) {
-            Ok(id) => id,
-            Err(WSError::Eof) => break,
-            Err(e) => return Err(e.into()),
-        };
-        let len = varint_get32(&mut reader)? as usize;
-        let mut payload = vec![0u8; len];
-        reader.read_exact(&mut payload)?;
-        let section = Section { id, payload };
-        dbg!(section.type_to_string());
-        sections.push(section);
+    println!();
+    if valid_hashes.is_empty() {
+        println!("No valid signatures");
+        return Err(WSError::VerificationFailed);
+    }
+    println!("Hashes matching the signature:");
+    for valid_hash in valid_hashes {
+        println!("  - [{}]", Hex::encode_to_string(&valid_hash).unwrap());
+    }
+    println!();
+    println!("Computed hashes:");
+    let mut hasher = Hash::new();
+    let sections_len = sections.len();
+    for (idx, section) in sections {
+        hasher.update(&section.payload);
+        if section.is_signature_delimiter()? || idx == sections_len {
+            let h = hasher.finalize();
+            hasher = Hash::new();
+            println!("  - [{}]", Hex::encode_to_string(h).unwrap());
+        }
     }
 
     Ok(())
 }
 
-fn main() {
-    doit().unwrap();
+fn main() -> Result<(), WSError> {
+    println!();
+    let matches = app_from_crate!()
+        .arg(
+            Arg::with_name("in")
+                .value_name("input_file")
+                .long("--input-file")
+                .short("-i")
+                .multiple(false)
+                .help("Input file"),
+        )
+        .arg(
+            Arg::with_name("out")
+                .value_name("output_file")
+                .long("--output-file")
+                .short("-o")
+                .multiple(false)
+                .help("Output file"),
+        )
+        .arg(
+            Arg::with_name("secret_key")
+                .value_name("secret_key_file")
+                .long("--secret-key")
+                .short("-k")
+                .multiple(false)
+                .help("Secret key file"),
+        )
+        .arg(
+            Arg::with_name("public_key")
+                .value_name("public_key_file")
+                .long("--public-key")
+                .short("-K")
+                .multiple(false)
+                .help("Public key file"),
+        )
+        .arg(
+            Arg::with_name("action")
+                .long("--action")
+                .short("-a")
+                .value_name("action (show, sign, keygen)")
+                .multiple(false)
+                .required(true)
+                .help("Action"),
+        )
+        .arg(
+            Arg::with_name("splits")
+                .long("--split")
+                .short("-s")
+                .value_name("position")
+                .multiple(true)
+                .help("Split"),
+        )
+        .arg(Arg::with_name("verbose").short("-v").help("Verbose output"))
+        .get_matches();
+
+    let input_file = matches.value_of("in");
+    let output_file = matches.value_of("out");
+    let action = matches.value_of("action").unwrap();
+    let splits = matches.values_of("splits");
+    let verbose = matches.is_present("verbose");
+
+    if action == "show" {
+        show(input_file.unwrap(), verbose)?;
+    } else if action == "keygen" {
+        let kp = KeyPair::generate();
+        let sk_file = matches.value_of("secret_key");
+        let pk_file = matches.value_of("public_key");
+        if let Some(sk_file) = sk_file {
+            kp.sk.to_file(sk_file)?;
+        }
+        if let Some(pk_file) = pk_file {
+            kp.pk.to_file(pk_file)?;
+        }
+    } else if action == "sign" {
+        let kp;
+        let sk_file = matches.value_of("secret_key");
+        let sk = if let Some(sk_file) = sk_file {
+            SecretKey::from_file(sk_file)?
+        } else {
+            kp = KeyPair::generate();
+            kp.sk
+        };
+        let mut splits: Vec<usize> = splits
+            .unwrap_or_default()
+            .map(|x| x.parse::<usize>().unwrap())
+            .collect();
+        splits.sort_unstable();
+        let output_file = output_file.expect("Missing output file");
+        let input_file = input_file.expect("Missing input file");
+        sign(&sk, input_file, output_file, Some(splits))?;
+        println!("* Signed module structure:\n");
+        show(output_file, verbose)?;
+    } else if action == "verify" {
+        let pk_file = matches.value_of("public_key").expect("Missing public key");
+        let pk = PublicKey::from_file(pk_file)?;
+        let input_file = input_file.expect("Missing input file");
+        verify(&pk, input_file)?;
+    }
+    Ok(())
 }
