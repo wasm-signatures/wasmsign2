@@ -101,7 +101,7 @@ fn build_header_section(sk: &SecretKey, hashes: Vec<Vec<u8>>) -> Result<Section,
     msg.extend_from_slice(SIGNATURE_DOMAIN.as_bytes());
     msg.extend_from_slice(&[SIGNATURE_VERSION, SIGNATURE_HASH_FUNCTION]);
     for hash in &hashes {
-        msg.extend_from_slice(&hash);
+        msg.extend_from_slice(hash);
     }
 
     println!("* Adding signature:\n");
@@ -228,7 +228,7 @@ fn verify(pk: &PublicKey, in_file: &str) -> Result<(), WSError> {
         msg.extend_from_slice(&[SIGNATURE_VERSION, SIGNATURE_HASH_FUNCTION]);
         let hashes = &signed_part.hashes;
         for hash in hashes {
-            msg.extend_from_slice(&hash);
+            msg.extend_from_slice(hash);
         }
         for signature in &signed_part.signatures {
             if pk
