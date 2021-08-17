@@ -29,7 +29,7 @@ struct PublicKey {
 impl PublicKey {
     fn from_file(file: &str) -> Result<Self, WSError> {
         let mut fp = File::open(file)?;
-        let mut bytes = Vec::new();
+        let mut bytes = vec![];
         fp.read_to_end(&mut bytes)?;
         let pk = ed25519_compact::PublicKey::from_slice(&bytes)?;
         Ok(PublicKey { pk })
@@ -49,7 +49,7 @@ struct SecretKey {
 impl SecretKey {
     fn from_file(file: &str) -> Result<Self, WSError> {
         let mut fp = File::open(file)?;
-        let mut bytes = Vec::new();
+        let mut bytes = vec![];
         fp.read_to_end(&mut bytes)?;
         let sk = ed25519_compact::SecretKey::from_slice(&bytes)?;
         Ok(SecretKey { sk })
@@ -97,11 +97,11 @@ fn delimiter_section() -> Result<Section, WSError> {
 }
 
 fn build_header_section(sk: &SecretKey, hashes: Vec<Vec<u8>>) -> Result<Section, WSError> {
-    let mut msg: Vec<u8> = Vec::new();
+    let mut msg: Vec<u8> = vec![];
     msg.extend_from_slice(SIGNATURE_DOMAIN.as_bytes());
     msg.extend_from_slice(&[SIGNATURE_VERSION, SIGNATURE_HASH_FUNCTION]);
     for hash in &hashes {
-        msg.extend_from_slice(&hash);
+        msg.extend_from_slice(hash);
     }
 
     println!("* Adding signature:\n");
@@ -122,10 +122,10 @@ fn build_header_section(sk: &SecretKey, hashes: Vec<Vec<u8>>) -> Result<Section,
         key_id: None,
         signature,
     };
-    let mut signatures = Vec::new();
+    let mut signatures = vec![];
     signatures.push(signature_for_hashes);
     let signed_parts = SignedParts { hashes, signatures };
-    let mut signed_parts_set = Vec::new();
+    let mut signed_parts_set = vec![];
     signed_parts_set.push(signed_parts);
     let header_payload = HeaderPayload {
         specification_version: SIGNATURE_VERSION,
@@ -147,21 +147,24 @@ fn sign(
     sk: &SecretKey,
     in_file: &str,
     out_file: &str,
+    signature_file: Option<&str>,
     splits: Option<Vec<usize>>,
 ) -> Result<(), WSError> {
     let splits = splits.unwrap_or_default();
 
     let mut module = Module::parse(in_file)?;
     let mut hasher = Hash::new();
-    let mut hashes = Vec::new();
+    let mut hashes = vec![];
 
-    let mut out_sections = Vec::new();
+    let mut out_sections = vec![];
     let header_section = CustomSection {
         name: "".to_string(),
-        custom_payload: Vec::new(),
+        custom_payload: vec![],
     }
     .to_section()?;
-    out_sections.push(header_section);
+    if signature_file.is_none() {
+        out_sections.push(header_section);
+    }
 
     let mut splits_cursor = splits.iter();
     let mut next_split = splits_cursor.next();
@@ -190,16 +193,30 @@ fn sign(
     hashes.push(hasher.finalize().to_vec());
 
     let header_section = build_header_section(sk, hashes)?;
-    out_sections[0] = header_section;
+
+    if let Some(signature_file) = signature_file {
+        File::create(signature_file)?.write_all(&header_section.payload)?;
+    } else {
+        out_sections[0] = header_section;
+    }
     module.sections = out_sections;
     module.serialize(out_file)?;
     Ok(())
 }
 
-fn verify(pk: &PublicKey, in_file: &str) -> Result<(), WSError> {
+fn verify(pk: &PublicKey, in_file: &str, signature_file: Option<&str>) -> Result<(), WSError> {
     let module = Module::parse(in_file)?;
     let mut sections = module.sections.iter().enumerate();
-    let (_, signature_header) = sections.next().ok_or(WSError::ParseError)?;
+    let signature_header: &Section;
+    let signature_header_from_file;
+    if let Some(signature_file) = signature_file {
+        let mut custom_payload = vec![];
+        File::open(signature_file)?.read_to_end(&mut custom_payload)?;
+        signature_header_from_file = Section::new(0, custom_payload);
+        signature_header = &signature_header_from_file;
+    } else {
+        signature_header = sections.next().ok_or(WSError::ParseError)?.1;
+    }
     if !signature_header.is_signature_header()? {
         println!("This module is not signed");
         return Ok(());
@@ -223,12 +240,12 @@ fn verify(pk: &PublicKey, in_file: &str) -> Result<(), WSError> {
     let mut valid_hashes = HashSet::new();
     let signed_parts_set = header_payload.signed_parts_set;
     for signed_part in &signed_parts_set {
-        let mut msg: Vec<u8> = Vec::new();
+        let mut msg: Vec<u8> = vec![];
         msg.extend_from_slice(SIGNATURE_DOMAIN.as_bytes());
         msg.extend_from_slice(&[SIGNATURE_VERSION, SIGNATURE_HASH_FUNCTION]);
         let hashes = &signed_part.hashes;
         for hash in hashes {
-            msg.extend_from_slice(&hash);
+            msg.extend_from_slice(hash);
         }
         for signature in &signed_part.signatures {
             if pk
@@ -298,6 +315,14 @@ fn main() -> Result<(), WSError> {
                 .help("Output file"),
         )
         .arg(
+            Arg::with_name("signature_file")
+                .value_name("signature_file")
+                .long("--signature-file")
+                .short("-S")
+                .multiple(false)
+                .help("Signature file"),
+        )
+        .arg(
             Arg::with_name("secret_key")
                 .value_name("secret_key_file")
                 .long("--secret-key")
@@ -335,6 +360,7 @@ fn main() -> Result<(), WSError> {
 
     let input_file = matches.value_of("in");
     let output_file = matches.value_of("out");
+    let signature_file = matches.value_of("signature_file");
     let action = matches.value_of("action").unwrap();
     let splits = matches.values_of("splits");
     let verbose = matches.is_present("verbose");
@@ -367,14 +393,14 @@ fn main() -> Result<(), WSError> {
         splits.sort_unstable();
         let output_file = output_file.expect("Missing output file");
         let input_file = input_file.expect("Missing input file");
-        sign(&sk, input_file, output_file, Some(splits))?;
+        sign(&sk, input_file, output_file, signature_file, Some(splits))?;
         println!("* Signed module structure:\n");
         show(output_file, verbose)?;
     } else if action == "verify" {
         let pk_file = matches.value_of("public_key").expect("Missing public key");
         let pk = PublicKey::from_file(pk_file)?;
         let input_file = input_file.expect("Missing input file");
-        verify(&pk, input_file)?;
+        verify(&pk, input_file, signature_file)?;
     }
     Ok(())
 }

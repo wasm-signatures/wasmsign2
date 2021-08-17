@@ -41,6 +41,10 @@ impl Section {
         Ok(())
     }
 
+    pub fn new(id: u8, payload: Vec<u8>) -> Section {
+        Section { id, payload }
+    }
+
     pub fn custom_section_get(&self) -> Result<CustomSection, WSError> {
         if self.id != 0 {
             return Err(WSError::ParseError);
