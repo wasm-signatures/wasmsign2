@@ -189,7 +189,9 @@ fn sign(
     }
     let delimiter = delimiter_section()?;
     hasher.update(&delimiter.payload);
-    out_sections.push(delimiter);
+    if signature_file.is_none() {
+        out_sections.push(delimiter);
+    }
     hashes.push(hasher.finalize().to_vec());
 
     let header_section = build_header_section(sk, hashes)?;
@@ -286,9 +288,12 @@ fn verify(pk: &PublicKey, in_file: &str, signature_file: Option<&str>) -> Result
             let h = hasher.finalize();
             hasher = Hash::new();
             println!("  - [{}]", Hex::encode_to_string(h).unwrap());
-        } else if idx == sections_len {
-            println!("No final delimiter");
-            return Err(WSError::VerificationFailed);
+        } else if idx + 1 == sections_len {
+            if signature_file.is_some() {
+            } else {
+                println!("No final delimiter");
+                return Err(WSError::VerificationFailed);
+            }
         }
     }
 
