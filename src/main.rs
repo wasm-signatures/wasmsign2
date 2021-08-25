@@ -22,6 +22,9 @@ const SIGNATURE_DOMAIN: &str = "wasmsig";
 const SIGNATURE_VERSION: u8 = 0x01;
 const SIGNATURE_HASH_FUNCTION: u8 = 0x01;
 
+const ED25519_PK_ID: u8 = 0x01;
+const ED25519_SK_ID: u8 = 0x81;
+
 struct PublicKey {
     pk: ed25519_compact::PublicKey,
 }
@@ -29,6 +32,11 @@ struct PublicKey {
 impl PublicKey {
     fn from_file(file: &str) -> Result<Self, WSError> {
         let mut fp = File::open(file)?;
+        let mut id = [0u8];
+        fp.read_exact(&mut id)?;
+        if id[0] != ED25519_PK_ID {
+            return Err(WSError::UnsupportedKeyType);
+        }
         let mut bytes = vec![];
         fp.read_to_end(&mut bytes)?;
         let pk = ed25519_compact::PublicKey::from_slice(&bytes)?;
@@ -37,6 +45,7 @@ impl PublicKey {
 
     fn to_file(&self, file: &str) -> Result<(), WSError> {
         let mut fp = File::create(file)?;
+        fp.write_all(&[ED25519_PK_ID])?;
         fp.write_all(&*self.pk)?;
         Ok(())
     }
@@ -49,6 +58,11 @@ struct SecretKey {
 impl SecretKey {
     fn from_file(file: &str) -> Result<Self, WSError> {
         let mut fp = File::open(file)?;
+        let mut id = [0u8];
+        fp.read_exact(&mut id)?;
+        if id[0] != ED25519_SK_ID {
+            return Err(WSError::UnsupportedKeyType);
+        }
         let mut bytes = vec![];
         fp.read_to_end(&mut bytes)?;
         let sk = ed25519_compact::SecretKey::from_slice(&bytes)?;
@@ -57,6 +71,7 @@ impl SecretKey {
 
     fn to_file(&self, file: &str) -> Result<(), WSError> {
         let mut fp = File::create(file)?;
+        fp.write_all(&[ED25519_SK_ID])?;
         fp.write_all(&*self.sk)?;
         Ok(())
     }
@@ -347,7 +362,7 @@ fn main() -> Result<(), WSError> {
             Arg::with_name("action")
                 .long("--action")
                 .short("-a")
-                .value_name("action (show, sign, keygen)")
+                .value_name("action (show, sign, verify, keygen)")
                 .multiple(false)
                 .required(true)
                 .help("Action"),
