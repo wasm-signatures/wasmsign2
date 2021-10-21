@@ -16,6 +16,7 @@ use hmac_sha256::Hash;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::prelude::*;
+use std::ops::RangeInclusive;
 use std::str;
 
 const SIGNATURE_DOMAIN: &str = "wasmsig";
@@ -220,7 +221,11 @@ fn sign(
     Ok(())
 }
 
-fn verify(pk: &PublicKey, in_file: &str, signature_file: Option<&str>) -> Result<(), WSError> {
+fn verify(
+    pk: &PublicKey,
+    in_file: &str,
+    signature_file: Option<&str>,
+) -> Result<Vec<RangeInclusive<usize>>, WSError> {
     let module = Module::parse(in_file)?;
     let sections_len = module.sections.len();
     let mut sections = module.sections.iter().enumerate();
@@ -236,7 +241,7 @@ fn verify(pk: &PublicKey, in_file: &str, signature_file: Option<&str>) -> Result
     }
     if !signature_header.is_signature_header()? {
         println!("This module is not signed");
-        return Ok(());
+        return Err(WSError::NoSignatures);
     }
     let signature_data = signature_header.get_signature_data()?;
     if signature_data.specification_version != SIGNATURE_VERSION {
@@ -294,8 +299,9 @@ fn verify(pk: &PublicKey, in_file: &str, signature_file: Option<&str>) -> Result
         println!("  - [{}]", Hex::encode_to_string(&valid_hash).unwrap());
     }
     println!();
-    println!("Computed hashes:");
     let mut hasher = Hash::new();
+    let mut matching_section_ranges = vec![];
+    println!("Computed hashes:");
     for (idx, section) in sections {
         hasher.update(&section.payload);
         if section.is_signature_delimiter()? {
@@ -304,12 +310,18 @@ fn verify(pk: &PublicKey, in_file: &str, signature_file: Option<&str>) -> Result
             if !valid_hashes.contains(&h) {
                 return Err(WSError::VerificationFailed);
             }
+            matching_section_ranges.push(0..=idx);
             hasher = Hash::new();
         } else if idx + 1 == sections_len && signature_file.is_none() {
             return Err(WSError::VerificationFailed);
         }
     }
-    Ok(())
+    println!();
+    println!("Valid, signed ranges:");
+    for range in &matching_section_ranges {
+        println!("  - {}...{}", range.start(), range.end());
+    }
+    Ok(matching_section_ranges)
 }
 
 fn main() -> Result<(), WSError> {

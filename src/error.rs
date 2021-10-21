@@ -21,6 +21,9 @@ pub enum WSError {
     #[error("No valid signatures")]
     VerificationFailed,
 
+    #[error("No signatures found")]
+    NoSignatures,
+
     #[error("Unsupported key type")]
     UnsupportedKeyType,
 }
