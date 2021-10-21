@@ -1,3 +1,6 @@
+#![allow(clippy::vec_init_then_push)]
+#![forbid(unsafe_code)]
+
 #[macro_use]
 extern crate clap;
 
