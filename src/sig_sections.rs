@@ -56,7 +56,7 @@ impl SignedHashes {
         let mut writer = BufWriter::new(Vec::new());
         varint::put(&mut writer, self.hashes.len() as _)?;
         for hash in &self.hashes {
-            varint::put_slice(&mut writer, hash)?;
+            writer.write_all(&hash)?;
         }
         varint::put(&mut writer, self.signatures.len() as _)?;
         for signature in &self.signatures {
