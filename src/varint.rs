@@ -48,3 +48,20 @@ pub fn put<W: Write>(writer: &mut BufWriter<W>, mut v: u64) -> Result<(), WSErro
         }
     }
 }
+
+pub fn put_slice<W: Write>(
+    writer: &mut BufWriter<W>,
+    bytes: impl AsRef<[u8]>,
+) -> Result<(), WSError> {
+    let bytes = bytes.as_ref();
+    put(writer, bytes.len() as _)?;
+    writer.write_all(bytes)?;
+    Ok(())
+}
+
+pub fn get_slice<R: Read>(reader: &mut BufReader<R>) -> Result<Vec<u8>, WSError> {
+    let len = get32(reader)? as _;
+    let mut bytes = vec![0u8; len];
+    reader.read_exact(&mut bytes)?;
+    Ok(bytes)
+}

@@ -139,13 +139,13 @@ fn build_header_section(sk: &SecretKey, hashes: Vec<Vec<u8>>) -> Result<Section,
     };
     let mut signatures = vec![];
     signatures.push(signature_for_hashes);
-    let signed_parts = SignedParts { hashes, signatures };
-    let mut signed_parts_set = vec![];
-    signed_parts_set.push(signed_parts);
-    let header_payload = HeaderPayload {
+    let signed_parts = SignedHashes { hashes, signatures };
+    let mut signed_hashes_set = vec![];
+    signed_hashes_set.push(signed_parts);
+    let header_payload = SignatureData {
         specification_version: SIGNATURE_VERSION,
         hash_function: SIGNATURE_HASH_FUNCTION,
-        signed_parts_set,
+        signed_hashes_set,
     };
     let header_payload_bin = bincode::serialize(&header_payload).unwrap();
 
@@ -255,8 +255,8 @@ fn verify(pk: &PublicKey, in_file: &str, signature_file: Option<&str>) -> Result
     }
 
     let mut valid_hashes = HashSet::new();
-    let signed_parts_set = header_payload.signed_parts_set;
-    for signed_part in &signed_parts_set {
+    let signed_hashes_set = header_payload.signed_hashes_set;
+    for signed_part in &signed_hashes_set {
         let mut msg: Vec<u8> = vec![];
         msg.extend_from_slice(SIGNATURE_DOMAIN.as_bytes());
         msg.extend_from_slice(&[SIGNATURE_VERSION, SIGNATURE_HASH_FUNCTION]);
@@ -303,12 +303,9 @@ fn verify(pk: &PublicKey, in_file: &str, signature_file: Option<&str>) -> Result
             let h = hasher.finalize();
             hasher = Hash::new();
             println!("  - [{}]", Hex::encode_to_string(h).unwrap());
-        } else if idx + 1 == sections_len {
-            if signature_file.is_some() {
-            } else {
-                println!("No final delimiter");
-                return Err(WSError::VerificationFailed);
-            }
+        } else if idx + 1 == sections_len && signature_file.is_none() {
+            println!("No final delimiter");
+            return Err(WSError::VerificationFailed);
         }
     }
 

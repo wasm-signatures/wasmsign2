@@ -63,9 +63,9 @@ impl Section {
         })
     }
 
-    pub fn get_signature_header_payload(&self) -> Result<HeaderPayload, WSError> {
+    pub fn get_signature_header_payload(&self) -> Result<SignatureData, WSError> {
         let custom_section = self.custom_section_get()?;
-        let header_payload: HeaderPayload = bincode::deserialize(&custom_section.custom_payload)
+        let header_payload: SignatureData = bincode::deserialize(&custom_section.custom_payload)
             .map_err(|_| WSError::ParseError)?;
         Ok(header_payload)
     }
@@ -96,7 +96,7 @@ impl Section {
                             Hex::encode_to_string(custom_section.custom_payload).unwrap()
                         )),
                         SIGNATURE_SECTION_HEADER_NAME => {
-                            let header_payload: HeaderPayload =
+                            let header_payload: SignatureData =
                                 bincode::deserialize(&custom_section.custom_payload)
                                     .map_err(|_| WSError::ParseError)?;
                             let mut s = String::new();
@@ -113,7 +113,7 @@ impl Section {
                             )
                             .unwrap();
                             writeln!(s, "- (hashes,signatures) set:").unwrap();
-                            for signed_parts in &header_payload.signed_parts_set {
+                            for signed_parts in &header_payload.signed_hashes_set {
                                 writeln!(s, "  - hashes:").unwrap();
                                 for hash in &signed_parts.hashes {
                                     writeln!(s, "    - [{}]", Hex::encode_to_string(hash).unwrap())
