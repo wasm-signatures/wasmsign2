@@ -63,9 +63,9 @@ impl Section {
         })
     }
 
-    pub fn get_signature_header_payload(&self) -> Result<SignatureData, WSError> {
+    pub fn get_signature_data(&self) -> Result<SignatureData, WSError> {
         let custom_section = self.custom_section_get()?;
-        let header_payload: SignatureData = bincode::deserialize(&custom_section.custom_payload)
+        let header_payload = SignatureData::deserialize(&custom_section.custom_payload)
             .map_err(|_| WSError::ParseError)?;
         Ok(header_payload)
     }
@@ -96,24 +96,24 @@ impl Section {
                             Hex::encode_to_string(custom_section.custom_payload).unwrap()
                         )),
                         SIGNATURE_SECTION_HEADER_NAME => {
-                            let header_payload: SignatureData =
-                                bincode::deserialize(&custom_section.custom_payload)
+                            let signature_data =
+                                SignatureData::deserialize(&custom_section.custom_payload)
                                     .map_err(|_| WSError::ParseError)?;
                             let mut s = String::new();
                             writeln!(
                                 s,
                                 "- specification version: 0x{:02x}",
-                                header_payload.specification_version,
+                                signature_data.specification_version,
                             )
                             .unwrap();
                             writeln!(
                                 s,
                                 "- hash function: 0x{:02x} (SHA-256)",
-                                header_payload.hash_function
+                                signature_data.hash_function
                             )
                             .unwrap();
                             writeln!(s, "- (hashes,signatures) set:").unwrap();
-                            for signed_parts in &header_payload.signed_hashes_set {
+                            for signed_parts in &signature_data.signed_hashes_set {
                                 writeln!(s, "  - hashes:").unwrap();
                                 for hash in &signed_parts.hashes {
                                     writeln!(s, "    - [{}]", Hex::encode_to_string(hash).unwrap())

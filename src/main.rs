@@ -142,16 +142,15 @@ fn build_header_section(sk: &SecretKey, hashes: Vec<Vec<u8>>) -> Result<Section,
     let signed_parts = SignedHashes { hashes, signatures };
     let mut signed_hashes_set = vec![];
     signed_hashes_set.push(signed_parts);
-    let header_payload = SignatureData {
+    let signature_data = SignatureData {
         specification_version: SIGNATURE_VERSION,
         hash_function: SIGNATURE_HASH_FUNCTION,
         signed_hashes_set,
     };
-    let header_payload_bin = bincode::serialize(&header_payload).unwrap();
-
+    let signature_data_bin = signature_data.serialize()?;
     let header_section = CustomSection {
         name: SIGNATURE_SECTION_HEADER_NAME.to_string(),
-        custom_payload: header_payload_bin,
+        custom_payload: signature_data_bin,
     }
     .to_section()?;
 
@@ -238,24 +237,24 @@ fn verify(pk: &PublicKey, in_file: &str, signature_file: Option<&str>) -> Result
         println!("This module is not signed");
         return Ok(());
     }
-    let header_payload = signature_header.get_signature_header_payload()?;
-    if header_payload.specification_version != SIGNATURE_VERSION {
+    let signature_data = signature_header.get_signature_data()?;
+    if signature_data.specification_version != SIGNATURE_VERSION {
         println!(
             "Unsupported specification version: {:02x}",
-            header_payload.specification_version
+            signature_data.specification_version
         );
         return Err(WSError::ParseError);
     }
-    if header_payload.hash_function != SIGNATURE_HASH_FUNCTION {
+    if signature_data.hash_function != SIGNATURE_HASH_FUNCTION {
         println!(
             "Unsupported hash function: {:02x}",
-            header_payload.specification_version
+            signature_data.specification_version
         );
         return Err(WSError::ParseError);
     }
 
     let mut valid_hashes = HashSet::new();
-    let signed_hashes_set = header_payload.signed_hashes_set;
+    let signed_hashes_set = signature_data.signed_hashes_set;
     for signed_part in &signed_hashes_set {
         let mut msg: Vec<u8> = vec![];
         msg.extend_from_slice(SIGNATURE_DOMAIN.as_bytes());
