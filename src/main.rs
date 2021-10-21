@@ -295,24 +295,21 @@ fn verify(pk: &PublicKey, in_file: &str, signature_file: Option<&str>) -> Result
     }
     println!();
     println!("Computed hashes:");
-    let mut hashes = vec![];
     let mut hasher = Hash::new();
     for (idx, section) in sections {
         hasher.update(&section.payload);
         if section.is_signature_delimiter()? {
-            let h = hasher.finalize();
+            let h = hasher.finalize().to_vec();
             println!("  - [{}]", Hex::encode_to_string(&h).unwrap());
-            hashes.extend_from_slice(&h);
-            if valid_hashes.contains(&hashes) {
-                println!("    Valid.");
-                return Ok(());
+            if !valid_hashes.contains(&h) {
+                return Err(WSError::VerificationFailed);
             }
             hasher = Hash::new();
         } else if idx + 1 == sections_len && signature_file.is_none() {
             return Err(WSError::VerificationFailed);
         }
     }
-    Err(WSError::VerificationFailed)
+    Ok(())
 }
 
 fn main() -> Result<(), WSError> {
