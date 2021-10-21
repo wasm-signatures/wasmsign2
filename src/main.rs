@@ -222,6 +222,7 @@ fn sign(
 
 fn verify(pk: &PublicKey, in_file: &str, signature_file: Option<&str>) -> Result<(), WSError> {
     let module = Module::parse(in_file)?;
+    let sections_len = module.sections.len();
     let mut sections = module.sections.iter().enumerate();
     let signature_header: &Section;
     let signature_header_from_file;
@@ -289,26 +290,29 @@ fn verify(pk: &PublicKey, in_file: &str, signature_file: Option<&str>) -> Result
         return Err(WSError::VerificationFailed);
     }
     println!("Hashes matching the signature:");
-    for valid_hash in valid_hashes {
+    for valid_hash in &valid_hashes {
         println!("  - [{}]", Hex::encode_to_string(&valid_hash).unwrap());
     }
     println!();
     println!("Computed hashes:");
+    let mut hashes = vec![];
     let mut hasher = Hash::new();
-    let sections_len = sections.len();
     for (idx, section) in sections {
         hasher.update(&section.payload);
         if section.is_signature_delimiter()? {
             let h = hasher.finalize();
+            println!("  - [{}]", Hex::encode_to_string(&h).unwrap());
+            hashes.extend_from_slice(&h);
+            if valid_hashes.contains(&hashes) {
+                println!("    Valid.");
+                return Ok(());
+            }
             hasher = Hash::new();
-            println!("  - [{}]", Hex::encode_to_string(h).unwrap());
         } else if idx + 1 == sections_len && signature_file.is_none() {
-            println!("No final delimiter");
             return Err(WSError::VerificationFailed);
         }
     }
-
-    Ok(())
+    Err(WSError::VerificationFailed)
 }
 
 fn main() -> Result<(), WSError> {
