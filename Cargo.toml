@@ -4,12 +4,12 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.43"
+anyhow = "1.0.44"
 clap = { version = "2.33.3", default-features = false, features = ["wrap_help"] }
 ct-codecs = "1.1.1"
-ed25519-compact = "0.1.9"
+ed25519-compact = "0.1.11"
 env_logger = { version = "0.9.0", default-features = false, features = ["humantime"] }
 getrandom = "0.2.3"
 hmac-sha256 = "0.1.7"
-serde = { version = "1.0.129", features = ["derive"] }
-thiserror = "1.0.26"
+serde = { version = "1.0.130", features = ["derive"] }
+thiserror = "1.0.30"
