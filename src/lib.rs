@@ -12,6 +12,7 @@ use wasm_module::*;
 
 use ct_codecs::{Encoder, Hex};
 use hmac_sha256::Hash;
+use log::*;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::prelude::*;
@@ -119,9 +120,9 @@ fn build_header_section(sk: &SecretKey, hashes: Vec<Vec<u8>>) -> Result<Section,
         msg.extend_from_slice(hash);
     }
 
-    println!("* Adding signature:\n");
+    debug!("* Adding signature:\n");
 
-    println!(
+    debug!(
         "sig = Ed25519(sk, \"{}\" ‖ {:02x} ‖ {:02x} ‖ {})\n",
         SIGNATURE_DOMAIN,
         SIGNATURE_VERSION,
@@ -131,7 +132,7 @@ fn build_header_section(sk: &SecretKey, hashes: Vec<Vec<u8>>) -> Result<Section,
 
     let signature = sk.sk.sign(msg, None).to_vec();
 
-    println!("    = {}\n\n", Hex::encode_to_string(&signature).unwrap());
+    debug!("    = {}\n\n", Hex::encode_to_string(&signature).unwrap());
 
     let signature_for_hashes = SignatureForHashes {
         key_id: None,
@@ -184,9 +185,9 @@ pub fn sign(
     let mut next_split = splits_cursor.next();
     for (idx, section) in module.sections.iter().enumerate() {
         if section.is_signature_header()? {
-            println!("A signature section was already present.");
+            debug!("A signature section was already present.");
             if idx != 0 {
-                println!("WARNING: the signature section was not the first module section.")
+                debug!("WARNING: the signature section was not the first module section.")
             }
             continue;
         }
@@ -239,19 +240,19 @@ pub fn verify(
         signature_header = sections.next().ok_or(WSError::ParseError)?.1;
     }
     if !signature_header.is_signature_header()? {
-        println!("This module is not signed");
+        debug!("This module is not signed");
         return Err(WSError::NoSignatures);
     }
     let signature_data = signature_header.get_signature_data()?;
     if signature_data.specification_version != SIGNATURE_VERSION {
-        println!(
+        debug!(
             "Unsupported specification version: {:02x}",
             signature_data.specification_version
         );
         return Err(WSError::ParseError);
     }
     if signature_data.hash_function != SIGNATURE_HASH_FUNCTION {
-        println!(
+        debug!(
             "Unsupported hash function: {:02x}",
             signature_data.specification_version
         );
@@ -279,7 +280,7 @@ pub fn verify(
             {
                 continue;
             }
-            println!(
+            debug!(
                 "Hash signature is valid for key [{}]",
                 Hex::encode_to_string(&*pk.pk).unwrap()
             );
@@ -288,24 +289,22 @@ pub fn verify(
             }
         }
     }
-    println!();
     if valid_hashes.is_empty() {
-        println!("No valid signatures");
+        debug!("No valid signatures");
         return Err(WSError::VerificationFailed);
     }
-    println!("Hashes matching the signature:");
+    debug!("Hashes matching the signature:");
     for valid_hash in &valid_hashes {
-        println!("  - [{}]", Hex::encode_to_string(&valid_hash).unwrap());
+        debug!("  - [{}]", Hex::encode_to_string(&valid_hash).unwrap());
     }
-    println!();
     let mut hasher = Hash::new();
     let mut matching_section_ranges = vec![];
-    println!("Computed hashes:");
+    debug!("Computed hashes:");
     for (idx, section) in sections {
         hasher.update(&section.payload);
         if section.is_signature_delimiter()? {
             let h = hasher.finalize().to_vec();
-            println!("  - [{}]", Hex::encode_to_string(&h).unwrap());
+            debug!("  - [{}]", Hex::encode_to_string(&h).unwrap());
             if !valid_hashes.contains(&h) {
                 return Err(WSError::VerificationFailed);
             }
@@ -315,10 +314,9 @@ pub fn verify(
             return Err(WSError::VerificationFailed);
         }
     }
-    println!();
-    println!("Valid, signed ranges:");
+    debug!("Valid, signed ranges:");
     for range in &matching_section_ranges {
-        println!("  - {}...{}", range.start(), range.end());
+        debug!("  - {}...{}", range.start(), range.end());
     }
     Ok(matching_section_ranges)
 }

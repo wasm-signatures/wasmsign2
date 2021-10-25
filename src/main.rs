@@ -4,9 +4,17 @@ use wasmsign2::*;
 extern crate clap;
 
 use clap::Arg;
+use env_logger;
 
 fn main() -> Result<(), WSError> {
-    println!();
+    env_logger::builder()
+        .format_timestamp(None)
+        .format_level(false)
+        .format_module_path(false)
+        .format_target(false)
+        .filter_level(log::LevelFilter::Debug)
+        .init();
+
     let matches = app_from_crate!()
         .arg(
             Arg::with_name("in")
