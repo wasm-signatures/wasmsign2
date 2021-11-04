@@ -275,18 +275,17 @@ impl Section {
     }
 
     pub fn serialize<W: Write>(&self, writer: &mut BufWriter<W>) -> Result<(), WSError> {
-        varint::put(writer, u8::from(self.id()) as _)?;
-        match self {
-            Section::Standard(s) => {
-                varint::put(writer, s.payload().len() as _)?;
-                writer.write_all(s.payload())?;
-            }
+        let outer_payload;
+        let payload = match self {
+            Section::Standard(s) => s.payload(),
             Section::Custom(s) => {
-                let outer_payload = s.outer_payload()?;
-                varint::put(writer, outer_payload.len() as _)?;
-                writer.write_all(&outer_payload)?;
+                outer_payload = s.outer_payload()?;
+                &outer_payload
             }
-        }
+        };
+        varint::put(writer, u8::from(self.id()) as _)?;
+        varint::put(writer, payload.len() as _)?;
+        writer.write_all(payload)?;
         Ok(())
     }
 }
