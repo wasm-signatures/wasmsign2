@@ -3,16 +3,93 @@ use crate::sig_sections::*;
 use crate::varint;
 
 use ct_codecs::{Encoder, Hex};
-use std::fmt::Write as _;
+use std::fmt::{self, Write as _};
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader, BufWriter};
 use std::str;
 
 pub const WASM_HEADER: [u8; 8] = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum SectionId {
+    CustomSection,
+    Type,
+    Import,
+    Function,
+    Table,
+    Memory,
+    Global,
+    Export,
+    Start,
+    Element,
+    Code,
+    Data,
+    Extension(u8),
+}
+
+impl From<u8> for SectionId {
+    fn from(v: u8) -> Self {
+        match v {
+            0 => (SectionId::CustomSection),
+            1 => (SectionId::Type),
+            2 => (SectionId::Import),
+            3 => (SectionId::Function),
+            4 => (SectionId::Table),
+            5 => (SectionId::Memory),
+            6 => (SectionId::Global),
+            7 => (SectionId::Export),
+            8 => (SectionId::Start),
+            9 => (SectionId::Element),
+            10 => (SectionId::Code),
+            11 => (SectionId::Data),
+            x => (SectionId::Extension(x)),
+        }
+    }
+}
+
+impl From<SectionId> for u8 {
+    fn from(v: SectionId) -> Self {
+        match v {
+            SectionId::CustomSection => 0,
+            SectionId::Type => 1,
+            SectionId::Import => 2,
+            SectionId::Function => 3,
+            SectionId::Table => 4,
+            SectionId::Memory => 5,
+            SectionId::Global => 6,
+            SectionId::Export => 7,
+            SectionId::Start => 8,
+            SectionId::Element => 9,
+            SectionId::Code => 10,
+            SectionId::Data => 11,
+            SectionId::Extension(x) => x,
+        }
+    }
+}
+
+impl fmt::Display for SectionId {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            SectionId::CustomSection => write!(f, "custom section"),
+            SectionId::Type => write!(f, "types section"),
+            SectionId::Import => write!(f, "imports section"),
+            SectionId::Function => write!(f, "functions section"),
+            SectionId::Table => write!(f, "table section"),
+            SectionId::Memory => write!(f, "memory section"),
+            SectionId::Global => write!(f, "global section"),
+            SectionId::Export => write!(f, "exports section"),
+            SectionId::Start => write!(f, "start section"),
+            SectionId::Element => write!(f, "elements section"),
+            SectionId::Code => write!(f, "code section"),
+            SectionId::Data => write!(f, "data section"),
+            SectionId::Extension(x) => write!(f, "section id#{}", x),
+        }
+    }
+}
+
+#[derive(Clone)]
 pub struct Section {
-    pub id: u8,
+    pub id: SectionId,
     pub payload: Vec<u8>,
 }
 
@@ -29,24 +106,27 @@ impl CustomSection {
         writer.write_all(self.name.as_bytes())?;
         writer.write_all(&self.custom_payload)?;
         let payload = writer.into_inner().unwrap().into_inner();
-        Ok(Section { id: 0, payload })
+        Ok(Section {
+            id: SectionId::CustomSection,
+            payload,
+        })
     }
 }
 
 impl Section {
     pub fn serialize<W: Write>(&self, writer: &mut BufWriter<W>) -> Result<(), WSError> {
-        varint::put(writer, self.id as _)?;
+        varint::put(writer, u8::from(self.id) as _)?;
         varint::put(writer, self.payload.len() as _)?;
         writer.write_all(&self.payload)?;
         Ok(())
     }
 
-    pub fn new(id: u8, payload: Vec<u8>) -> Section {
+    pub fn new(id: SectionId, payload: Vec<u8>) -> Section {
         Section { id, payload }
     }
 
     pub fn custom_section_get(&self) -> Result<CustomSection, WSError> {
-        if self.id != 0 {
+        if !matches!(self.id, SectionId::CustomSection) {
             return Err(WSError::ParseError);
         }
         let mut reader = BufReader::new(io::Cursor::new(&self.payload));
@@ -71,14 +151,14 @@ impl Section {
     }
 
     pub fn is_signature_header(&self) -> Result<bool, WSError> {
-        if self.id != 0 {
+        if self.id != SectionId::CustomSection {
             return Ok(false);
         }
         Ok(self.custom_section_get()?.name == SIGNATURE_SECTION_HEADER_NAME)
     }
 
     pub fn is_signature_delimiter(&self) -> Result<bool, WSError> {
-        if self.id != 0 {
+        if self.id != SectionId::CustomSection {
             return Ok(false);
         }
         Ok(self.custom_section_get()?.name == SIGNATURE_SECTION_DELIMITER_NAME)
@@ -86,9 +166,11 @@ impl Section {
 
     pub fn type_to_string(&self, verbose: bool) -> Result<String, WSError> {
         match self.id {
-            0 => {
+            SectionId::CustomSection => {
                 let custom_section = self.custom_section_get()?;
-                if verbose {
+                if !verbose {
+                    Ok(format!("custom section: [{}]", custom_section.name))
+                } else {
                     match custom_section.name.as_str() {
                         SIGNATURE_SECTION_DELIMITER_NAME => Ok(format!(
                             "custom section: [{}]\n- delimiter: [{}]\n",
@@ -142,26 +224,32 @@ impl Section {
                         }
                         _ => Ok(format!("custom section: [{}]", custom_section.name)),
                     }
-                } else {
-                    Ok(format!("custom section: [{}]", custom_section.name))
                 }
             }
-            1 => Ok("type section".to_string()),
-            2 => Ok("import section".to_string()),
-            3 => Ok("function section".to_string()),
-            4 => Ok("table section".to_string()),
-            5 => Ok("memory section".to_string()),
-            6 => Ok("global section".to_string()),
-            7 => Ok("export section".to_string()),
-            8 => Ok("start section".to_string()),
-            9 => Ok("element section".to_string()),
-            10 => Ok("code section".to_string()),
-            11 => Ok("data section".to_string()),
-            _ => {
-                dbg!(self.id);
-                Err(WSError::ParseError)
-            }
+            x => Ok(x.to_string()),
         }
+    }
+}
+
+impl fmt::Display for Section {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.type_to_string(false)
+                .unwrap_or_else(|_| self.id.to_string())
+        )
+    }
+}
+
+impl fmt::Debug for Section {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            self.type_to_string(true)
+                .unwrap_or_else(|_| self.id.to_string())
+        )
     }
 }
 
@@ -182,7 +270,7 @@ impl Module {
         let mut sections = Vec::new();
         loop {
             let id = match varint::get7(&mut reader) {
-                Ok(id) => id,
+                Ok(id) => SectionId::from(id),
                 Err(WSError::Eof) => break,
                 Err(e) => return Err(e),
             };

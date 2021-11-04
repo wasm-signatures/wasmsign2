@@ -234,7 +234,7 @@ pub fn verify(
     if let Some(signature_file) = signature_file {
         let mut custom_payload = vec![];
         File::open(signature_file)?.read_to_end(&mut custom_payload)?;
-        signature_header_from_file = Section::new(0, custom_payload);
+        signature_header_from_file = Section::new(SectionId::CustomSection, custom_payload);
         signature_header = &signature_header_from_file;
     } else {
         signature_header = sections.next().ok_or(WSError::ParseError)?.1;
