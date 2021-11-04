@@ -4,7 +4,6 @@ use wasmsign2::*;
 extern crate clap;
 
 use clap::Arg;
-use env_logger;
 
 fn main() -> Result<(), WSError> {
     env_logger::builder()
@@ -96,13 +95,11 @@ fn main() -> Result<(), WSError> {
             kp.pk.to_file(pk_file)?;
         }
     } else if action == "sign" {
-        let kp;
         let sk_file = matches.value_of("secret_key");
         let sk = if let Some(sk_file) = sk_file {
             SecretKey::from_file(sk_file)?
         } else {
-            kp = KeyPair::generate();
-            kp.sk
+            panic!("Secret key file is required");
         };
         let mut splits: Vec<usize> = splits
             .unwrap_or_default()

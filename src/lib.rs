@@ -96,7 +96,7 @@ impl KeyPair {
 pub fn show(file: &str, verbose: bool) -> Result<(), WSError> {
     let module = Module::parse(file)?;
     for (idx, section) in module.sections.iter().enumerate() {
-        println!("{}:\t{}", idx, section.type_to_string(verbose)?);
+        println!("{}:\t{}", idx, section.display(verbose));
     }
     Ok(())
 }
@@ -105,11 +105,10 @@ fn delimiter_section() -> Result<Section, WSError> {
     let mut custom_payload = vec![0u8; 16];
     getrandom::getrandom(&mut custom_payload)
         .map_err(|_| WSError::InternalError("RNG error".to_string()))?;
-    CustomSection {
-        name: SIGNATURE_SECTION_DELIMITER_NAME.to_string(),
+    Ok(Section::Custom(CustomSection::new(
+        SIGNATURE_SECTION_DELIMITER_NAME.to_string(),
         custom_payload,
-    }
-    .to_section()
+    )))
 }
 
 fn build_header_section(sk: &SecretKey, hashes: Vec<Vec<u8>>) -> Result<Section, WSError> {
@@ -149,12 +148,10 @@ fn build_header_section(sk: &SecretKey, hashes: Vec<Vec<u8>>) -> Result<Section,
         signed_hashes_set,
     };
     let signature_data_bin = signature_data.serialize()?;
-    let header_section = CustomSection {
-        name: SIGNATURE_SECTION_HEADER_NAME.to_string(),
-        custom_payload: signature_data_bin,
-    }
-    .to_section()?;
-
+    let header_section = Section::Custom(CustomSection::new(
+        SIGNATURE_SECTION_HEADER_NAME.to_string(),
+        signature_data_bin,
+    ));
     Ok(header_section)
 }
 
@@ -172,11 +169,7 @@ pub fn sign(
     let mut hashes = vec![];
 
     let mut out_sections = vec![];
-    let header_section = CustomSection {
-        name: "".to_string(),
-        custom_payload: vec![],
-    }
-    .to_section()?;
+    let header_section = Section::Custom(CustomSection::default());
     if signature_file.is_none() {
         out_sections.push(header_section);
     }
@@ -184,26 +177,28 @@ pub fn sign(
     let mut splits_cursor = splits.iter();
     let mut next_split = splits_cursor.next();
     for (idx, section) in module.sections.iter().enumerate() {
-        if section.is_signature_header()? {
-            debug!("A signature section was already present.");
-            if idx != 0 {
-                debug!("WARNING: the signature section was not the first module section.")
+        if let Section::Custom(custom_section) = section {
+            if custom_section.is_signature_header() {
+                debug!("A signature section was already present.");
+                if idx != 0 {
+                    debug!("WARNING: the signature section was not the first module section.")
+                }
+                continue;
             }
-            continue;
         }
         if Some(&idx) == next_split {
             let delimiter = delimiter_section()?;
-            hasher.update(&delimiter.payload);
+            hasher.update(delimiter.payload());
             out_sections.push(delimiter);
             hashes.push(hasher.finalize().to_vec());
             hasher = Hash::new();
             next_split = splits_cursor.next();
         }
-        hasher.update(&section.payload);
+        hasher.update(section.payload());
         out_sections.push(section.clone());
     }
     let delimiter = delimiter_section()?;
-    hasher.update(&delimiter.payload);
+    hasher.update(delimiter.payload());
     if signature_file.is_none() {
         out_sections.push(delimiter);
     }
@@ -212,7 +207,7 @@ pub fn sign(
     let header_section = build_header_section(sk, hashes)?;
 
     if let Some(signature_file) = signature_file {
-        File::create(signature_file)?.write_all(&header_section.payload)?;
+        File::create(signature_file)?.write_all(header_section.payload())?;
     } else {
         out_sections[0] = header_section;
     }
@@ -234,16 +229,19 @@ pub fn verify(
     if let Some(signature_file) = signature_file {
         let mut custom_payload = vec![];
         File::open(signature_file)?.read_to_end(&mut custom_payload)?;
-        signature_header_from_file = Section::new(SectionId::CustomSection, custom_payload);
+        signature_header_from_file = Section::new(SectionId::CustomSection, custom_payload)?;
         signature_header = &signature_header_from_file;
     } else {
         signature_header = sections.next().ok_or(WSError::ParseError)?.1;
     }
-    if !signature_header.is_signature_header()? {
-        debug!("This module is not signed");
-        return Err(WSError::NoSignatures);
-    }
-    let signature_data = signature_header.get_signature_data()?;
+    let signature_header = match signature_header {
+        Section::Custom(custom_section) if custom_section.is_signature_header() => custom_section,
+        _ => {
+            debug!("This module is not signed");
+            return Err(WSError::NoSignatures);
+        }
+    };
+    let signature_data = signature_header.signature_data()?;
     if signature_data.specification_version != SIGNATURE_VERSION {
         debug!(
             "Unsupported specification version: {:02x}",
@@ -301,17 +299,22 @@ pub fn verify(
     let mut matching_section_ranges = vec![];
     debug!("Computed hashes:");
     for (idx, section) in sections {
-        hasher.update(&section.payload);
-        if section.is_signature_delimiter()? {
-            let h = hasher.finalize().to_vec();
-            debug!("  - [{}]", Hex::encode_to_string(&h).unwrap());
-            if !valid_hashes.contains(&h) {
-                return Err(WSError::VerificationFailed);
+        hasher.update(section.payload());
+        match section {
+            Section::Custom(custom_section) if custom_section.is_signature_delimiter() => {
+                let h = hasher.finalize().to_vec();
+                debug!("  - [{}]", Hex::encode_to_string(&h).unwrap());
+                if !valid_hashes.contains(&h) {
+                    return Err(WSError::VerificationFailed);
+                }
+                matching_section_ranges.push(0..=idx);
+                hasher = Hash::new();
             }
-            matching_section_ranges.push(0..=idx);
-            hasher = Hash::new();
-        } else if idx + 1 == sections_len && signature_file.is_none() {
-            return Err(WSError::VerificationFailed);
+            _ => {
+                if idx + 1 == sections_len && signature_file.is_none() {
+                    return Err(WSError::VerificationFailed);
+                }
+            }
         }
     }
     debug!("Valid, signed ranges:");

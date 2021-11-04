@@ -30,19 +30,19 @@ pub enum SectionId {
 impl From<u8> for SectionId {
     fn from(v: u8) -> Self {
         match v {
-            0 => (SectionId::CustomSection),
-            1 => (SectionId::Type),
-            2 => (SectionId::Import),
-            3 => (SectionId::Function),
-            4 => (SectionId::Table),
-            5 => (SectionId::Memory),
-            6 => (SectionId::Global),
-            7 => (SectionId::Export),
-            8 => (SectionId::Start),
-            9 => (SectionId::Element),
-            10 => (SectionId::Code),
-            11 => (SectionId::Data),
-            x => (SectionId::Extension(x)),
+            0 => SectionId::CustomSection,
+            1 => SectionId::Type,
+            2 => SectionId::Import,
+            3 => SectionId::Function,
+            4 => SectionId::Table,
+            5 => SectionId::Memory,
+            6 => SectionId::Global,
+            7 => SectionId::Export,
+            8 => SectionId::Start,
+            9 => SectionId::Element,
+            10 => SectionId::Code,
+            11 => SectionId::Data,
+            x => SectionId::Extension(x),
         }
     }
 }
@@ -87,172 +87,238 @@ impl fmt::Display for SectionId {
     }
 }
 
-#[derive(Clone)]
-pub struct Section {
-    pub id: SectionId,
-    pub payload: Vec<u8>,
+pub trait SectionLike {
+    fn id(&self) -> SectionId;
+    fn payload(&self) -> &[u8];
+    fn display(&self, verbose: bool) -> String;
 }
 
 #[derive(Debug, Clone)]
+pub struct StandardSection {
+    id: SectionId,
+    payload: Vec<u8>,
+}
+
+impl StandardSection {
+    pub fn new(id: SectionId, payload: Vec<u8>) -> Self {
+        Self { id, payload }
+    }
+}
+
+impl SectionLike for StandardSection {
+    fn id(&self) -> SectionId {
+        self.id
+    }
+
+    fn payload(&self) -> &[u8] {
+        &self.payload
+    }
+
+    fn display(&self, _verbose: bool) -> String {
+        self.id().to_string()
+    }
+}
+
+#[derive(Debug, Clone, Default)]
 pub struct CustomSection {
-    pub name: String,
-    pub custom_payload: Vec<u8>,
+    name: String,
+    payload: Vec<u8>,
 }
 
 impl CustomSection {
-    pub fn to_section(&self) -> Result<Section, WSError> {
-        let mut writer = BufWriter::new(io::Cursor::new(Vec::new()));
-        varint::put(&mut writer, self.name.len() as _)?;
+    pub fn new(name: String, payload: Vec<u8>) -> Self {
+        Self { name, payload }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn serialize_outer_payload<W: Write>(
+        &self,
+        writer: &mut BufWriter<W>,
+    ) -> Result<(), WSError> {
+        varint::put(writer, self.name.len() as _)?;
         writer.write_all(self.name.as_bytes())?;
-        writer.write_all(&self.custom_payload)?;
-        let payload = writer.into_inner().unwrap().into_inner();
-        Ok(Section {
-            id: SectionId::CustomSection,
-            payload,
-        })
+        writer.write_all(&self.payload)?;
+        Ok(())
+    }
+}
+
+impl SectionLike for CustomSection {
+    fn id(&self) -> SectionId {
+        SectionId::CustomSection
+    }
+
+    fn payload(&self) -> &[u8] {
+        &self.payload
+    }
+
+    fn display(&self, verbose: bool) -> String {
+        if !verbose {
+            return format!("custom section: [{}]", self.name());
+        }
+
+        match self.name() {
+            SIGNATURE_SECTION_DELIMITER_NAME => format!(
+                "custom section: [{}]\n- delimiter: [{}]\n",
+                self.name,
+                Hex::encode_to_string(self.payload()).unwrap()
+            ),
+            SIGNATURE_SECTION_HEADER_NAME => {
+                let signature_data = match SignatureData::deserialize(self.payload()) {
+                    Ok(signature_data) => signature_data,
+                    _ => return "undecodable signature header".to_string(),
+                };
+                let mut s = String::new();
+                writeln!(
+                    s,
+                    "- specification version: 0x{:02x}",
+                    signature_data.specification_version,
+                )
+                .unwrap();
+                writeln!(
+                    s,
+                    "- hash function: 0x{:02x} (SHA-256)",
+                    signature_data.hash_function
+                )
+                .unwrap();
+                writeln!(s, "- (hashes,signatures) set:").unwrap();
+                for signed_parts in &signature_data.signed_hashes_set {
+                    writeln!(s, "  - hashes:").unwrap();
+                    for hash in &signed_parts.hashes {
+                        writeln!(s, "    - [{}]", Hex::encode_to_string(hash).unwrap()).unwrap();
+                    }
+                    writeln!(s, "  - signatures:").unwrap();
+                    for signature in &signed_parts.signatures {
+                        write!(
+                            s,
+                            "    - [{}]",
+                            Hex::encode_to_string(&signature.signature).unwrap()
+                        )
+                        .unwrap();
+                        match &signature.key_id {
+                            None => writeln!(s, " (no key id)").unwrap(),
+                            Some(key_id) => writeln!(
+                                s,
+                                " (key id: [{}])",
+                                Hex::encode_to_string(key_id).unwrap()
+                            )
+                            .unwrap(),
+                        }
+                    }
+                }
+                format!("custom section: [{}]\n{}", self.name(), s)
+            }
+            _ => format!("custom section: [{}]", self.name()),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub enum Section {
+    Standard(StandardSection),
+    Custom(CustomSection),
+}
+
+impl SectionLike for Section {
+    fn id(&self) -> SectionId {
+        match self {
+            Section::Standard(s) => s.id(),
+            Section::Custom(s) => s.id(),
+        }
+    }
+
+    fn payload(&self) -> &[u8] {
+        match self {
+            Section::Standard(s) => s.payload(),
+            Section::Custom(s) => s.payload(),
+        }
+    }
+
+    fn display(&self, verbose: bool) -> String {
+        match self {
+            Section::Standard(s) => s.display(verbose),
+            Section::Custom(s) => s.display(verbose),
+        }
     }
 }
 
 impl Section {
+    pub fn new(id: SectionId, payload: Vec<u8>) -> Result<Self, WSError> {
+        match id {
+            SectionId::CustomSection => {
+                let mut reader = BufReader::new(io::Cursor::new(payload));
+                let name_len = varint::get32(&mut reader)? as usize;
+                let mut name_slice = vec![0u8; name_len];
+                reader.read_exact(&mut name_slice)?;
+                let name = str::from_utf8(&name_slice)?.to_string();
+                let mut payload = Vec::new();
+                let len = reader.read_to_end(&mut payload)?;
+                payload.truncate(len);
+                Ok(Section::Custom(CustomSection::new(name, payload)))
+            }
+            _ => Ok(Section::Standard(StandardSection::new(id, payload))),
+        }
+    }
+
+    pub fn deserialize<R: Read>(reader: &mut BufReader<R>) -> Result<Option<Self>, WSError> {
+        let id = match varint::get7(reader) {
+            Ok(id) => SectionId::from(id),
+            Err(WSError::Eof) => return Ok(None),
+            Err(e) => return Err(e),
+        };
+        let len = varint::get32(reader)? as usize;
+        let mut payload = vec![0u8; len];
+        reader.read_exact(&mut payload)?;
+        let section = Section::new(id, payload)?;
+        Ok(Some(section))
+    }
+
     pub fn serialize<W: Write>(&self, writer: &mut BufWriter<W>) -> Result<(), WSError> {
-        varint::put(writer, u8::from(self.id) as _)?;
-        varint::put(writer, self.payload.len() as _)?;
-        writer.write_all(&self.payload)?;
+        varint::put(writer, u8::from(self.id()) as _)?;
+        match self {
+            Section::Standard(s) => {
+                varint::put(writer, s.payload().len() as _)?;
+                writer.write_all(s.payload())?;
+            }
+            Section::Custom(s) => {
+                s.serialize_outer_payload(writer)?;
+            }
+        }
         Ok(())
     }
+}
 
-    pub fn new(id: SectionId, payload: Vec<u8>) -> Section {
-        Section { id, payload }
+impl CustomSection {
+    pub fn is_signature_header(&self) -> bool {
+        self.name() == SIGNATURE_SECTION_HEADER_NAME
     }
 
-    pub fn custom_section_get(&self) -> Result<CustomSection, WSError> {
-        if !matches!(self.id, SectionId::CustomSection) {
-            return Err(WSError::ParseError);
-        }
-        let mut reader = BufReader::new(io::Cursor::new(&self.payload));
-        let name_len = varint::get32(&mut reader)? as usize;
-        let mut name_slice = vec![0u8; name_len];
-        reader.read_exact(&mut name_slice)?;
-        let name = str::from_utf8(&name_slice)?.to_string();
-        let mut payload = Vec::new();
-        let len = reader.read_to_end(&mut payload)?;
-        payload.truncate(len);
-        Ok(CustomSection {
-            name,
-            custom_payload: payload,
-        })
+    pub fn is_signature_delimiter(&self) -> bool {
+        self.name() == SIGNATURE_SECTION_DELIMITER_NAME
     }
 
-    pub fn get_signature_data(&self) -> Result<SignatureData, WSError> {
-        let custom_section = self.custom_section_get()?;
-        let header_payload = SignatureData::deserialize(&custom_section.custom_payload)
-            .map_err(|_| WSError::ParseError)?;
+    pub fn signature_data(&self) -> Result<SignatureData, WSError> {
+        let header_payload =
+            SignatureData::deserialize(self.payload()).map_err(|_| WSError::ParseError)?;
         Ok(header_payload)
-    }
-
-    pub fn is_signature_header(&self) -> Result<bool, WSError> {
-        if self.id != SectionId::CustomSection {
-            return Ok(false);
-        }
-        Ok(self.custom_section_get()?.name == SIGNATURE_SECTION_HEADER_NAME)
-    }
-
-    pub fn is_signature_delimiter(&self) -> Result<bool, WSError> {
-        if self.id != SectionId::CustomSection {
-            return Ok(false);
-        }
-        Ok(self.custom_section_get()?.name == SIGNATURE_SECTION_DELIMITER_NAME)
-    }
-
-    pub fn type_to_string(&self, verbose: bool) -> Result<String, WSError> {
-        match self.id {
-            SectionId::CustomSection => {
-                let custom_section = self.custom_section_get()?;
-                if !verbose {
-                    Ok(format!("custom section: [{}]", custom_section.name))
-                } else {
-                    match custom_section.name.as_str() {
-                        SIGNATURE_SECTION_DELIMITER_NAME => Ok(format!(
-                            "custom section: [{}]\n- delimiter: [{}]\n",
-                            custom_section.name,
-                            Hex::encode_to_string(custom_section.custom_payload).unwrap()
-                        )),
-                        SIGNATURE_SECTION_HEADER_NAME => {
-                            let signature_data =
-                                SignatureData::deserialize(&custom_section.custom_payload)
-                                    .map_err(|_| WSError::ParseError)?;
-                            let mut s = String::new();
-                            writeln!(
-                                s,
-                                "- specification version: 0x{:02x}",
-                                signature_data.specification_version,
-                            )
-                            .unwrap();
-                            writeln!(
-                                s,
-                                "- hash function: 0x{:02x} (SHA-256)",
-                                signature_data.hash_function
-                            )
-                            .unwrap();
-                            writeln!(s, "- (hashes,signatures) set:").unwrap();
-                            for signed_parts in &signature_data.signed_hashes_set {
-                                writeln!(s, "  - hashes:").unwrap();
-                                for hash in &signed_parts.hashes {
-                                    writeln!(s, "    - [{}]", Hex::encode_to_string(hash).unwrap())
-                                        .unwrap();
-                                }
-                                writeln!(s, "  - signatures:").unwrap();
-                                for signature in &signed_parts.signatures {
-                                    write!(
-                                        s,
-                                        "    - [{}]",
-                                        Hex::encode_to_string(&signature.signature).unwrap()
-                                    )
-                                    .unwrap();
-                                    match &signature.key_id {
-                                        None => writeln!(s, " (no key id)").unwrap(),
-                                        Some(key_id) => writeln!(
-                                            s,
-                                            " (key id: [{}])",
-                                            Hex::encode_to_string(key_id).unwrap()
-                                        )
-                                        .unwrap(),
-                                    }
-                                }
-                            }
-                            Ok(format!("custom section: [{}]\n{}", custom_section.name, s))
-                        }
-                        _ => Ok(format!("custom section: [{}]", custom_section.name)),
-                    }
-                }
-            }
-            x => Ok(x.to_string()),
-        }
     }
 }
 
 impl fmt::Display for Section {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.type_to_string(false)
-                .unwrap_or_else(|_| self.id.to_string())
-        )
+        write!(f, "{}", self.display(false))
     }
 }
 
 impl fmt::Debug for Section {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            self.type_to_string(true)
-                .unwrap_or_else(|_| self.id.to_string())
-        )
+        write!(f, "{}", self.display(true))
     }
 }
 
+#[derive(Debug, Clone, Default)]
 pub struct Module {
     pub sections: Vec<Section>,
 }
@@ -269,16 +335,10 @@ impl Module {
 
         let mut sections = Vec::new();
         loop {
-            let id = match varint::get7(&mut reader) {
-                Ok(id) => SectionId::from(id),
-                Err(WSError::Eof) => break,
-                Err(e) => return Err(e),
-            };
-            let len = varint::get32(&mut reader)? as usize;
-            let mut payload = vec![0u8; len];
-            reader.read_exact(&mut payload)?;
-            let section = Section { id, payload };
-            sections.push(section);
+            match Section::deserialize(&mut reader)? {
+                None => break,
+                Some(section) => sections.push(section),
+            }
         }
         Ok(Module { sections })
     }
