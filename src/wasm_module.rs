@@ -6,6 +6,7 @@ use ct_codecs::{Encoder, Hex};
 use std::fmt::{self, Write as _};
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader, BufWriter};
+use std::path::Path;
 use std::str;
 
 pub const WASM_HEADER: [u8; 8] = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
@@ -324,8 +325,8 @@ pub struct Module {
 }
 
 impl Module {
-    pub fn parse(file: &str) -> Result<Self, WSError> {
-        let fp = File::open(file)?;
+    pub fn deserialize_from_file(file: impl AsRef<Path>) -> Result<Self, WSError> {
+        let fp = File::open(file.as_ref())?;
         let mut reader = BufReader::new(fp);
         let mut header = [0u8; 8];
         reader.read_exact(&mut header)?;
@@ -334,6 +335,9 @@ impl Module {
         }
 
         let mut sections = Vec::new();
+        while let Some(section) = Section::deserialize(&mut reader)? {
+            sections.push(section);
+        }
         loop {
             match Section::deserialize(&mut reader)? {
                 None => break,
@@ -343,8 +347,8 @@ impl Module {
         Ok(Module { sections })
     }
 
-    pub fn serialize(&self, file: &str) -> Result<(), WSError> {
-        let fp = File::create(file)?;
+    pub fn serialize_to_file(&self, file: impl AsRef<Path>) -> Result<(), WSError> {
+        let fp = File::create(file.as_ref())?;
         let mut writer = BufWriter::new(fp);
         writer.write_all(&WASM_HEADER)?;
         for section in &self.sections {

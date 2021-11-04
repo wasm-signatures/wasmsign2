@@ -94,7 +94,7 @@ impl KeyPair {
 }
 
 pub fn show(file: &str, verbose: bool) -> Result<(), WSError> {
-    let module = Module::parse(file)?;
+    let module = Module::deserialize_from_file(file)?;
     for (idx, section) in module.sections.iter().enumerate() {
         println!("{}:\t{}", idx, section.display(verbose));
     }
@@ -164,7 +164,7 @@ pub fn sign(
 ) -> Result<(), WSError> {
     let splits = splits.unwrap_or_default();
 
-    let mut module = Module::parse(in_file)?;
+    let mut module = Module::deserialize_from_file(in_file)?;
     let mut hasher = Hash::new();
     let mut hashes = vec![];
 
@@ -212,7 +212,7 @@ pub fn sign(
         out_sections[0] = header_section;
     }
     module.sections = out_sections;
-    module.serialize(out_file)?;
+    module.serialize_to_file(out_file)?;
     Ok(())
 }
 
@@ -221,7 +221,7 @@ pub fn verify(
     in_file: &str,
     signature_file: Option<&str>,
 ) -> Result<Vec<RangeInclusive<usize>>, WSError> {
-    let module = Module::parse(in_file)?;
+    let module = Module::deserialize_from_file(in_file)?;
     let sections_len = module.sections.len();
     let mut sections = module.sections.iter().enumerate();
     let signature_header: &Section;
