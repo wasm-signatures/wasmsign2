@@ -135,14 +135,12 @@ impl CustomSection {
         &self.name
     }
 
-    pub fn serialize_outer_payload<W: Write>(
-        &self,
-        writer: &mut BufWriter<W>,
-    ) -> Result<(), WSError> {
-        varint::put(writer, self.name.len() as _)?;
+    pub fn outer_payload(&self) -> Result<Vec<u8>, WSError> {
+        let mut writer = BufWriter::new(io::Cursor::new(vec![]));
+        varint::put(&mut writer, self.name.len() as _)?;
         writer.write_all(self.name.as_bytes())?;
         writer.write_all(&self.payload)?;
-        Ok(())
+        Ok(writer.into_inner().unwrap().into_inner())
     }
 }
 
@@ -284,7 +282,9 @@ impl Section {
                 writer.write_all(s.payload())?;
             }
             Section::Custom(s) => {
-                s.serialize_outer_payload(writer)?;
+                let outer_payload = s.outer_payload()?;
+                varint::put(writer, outer_payload.len() as _)?;
+                writer.write_all(&outer_payload)?;
             }
         }
         Ok(())
@@ -337,12 +337,6 @@ impl Module {
         let mut sections = Vec::new();
         while let Some(section) = Section::deserialize(&mut reader)? {
             sections.push(section);
-        }
-        loop {
-            match Section::deserialize(&mut reader)? {
-                None => break,
-                Some(section) => sections.push(section),
-            }
         }
         Ok(Module { sections })
     }
