@@ -26,4 +26,7 @@ pub enum WSError {
 
     #[error("Unsupported key type")]
     UnsupportedKeyType,
+
+    #[error("Invalid argument")]
+    InvalidArgument,
 }

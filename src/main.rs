@@ -4,6 +4,7 @@ use wasmsign2::*;
 extern crate clap;
 
 use clap::Arg;
+use regex_automata::RegexBuilder;
 use std::fs::File;
 use std::io::prelude::*;
 
@@ -71,7 +72,7 @@ fn main() -> Result<(), WSError> {
                 .long("--split")
                 .short("-s")
                 .value_name("position")
-                .multiple(true)
+                .multiple(false)
                 .help("Split"),
         )
         .arg(Arg::with_name("verbose").short("-v").help("Verbose output"))
@@ -81,9 +82,20 @@ fn main() -> Result<(), WSError> {
     let output_file = matches.value_of("out");
     let signature_file = matches.value_of("signature_file");
     let action = matches.value_of("action").unwrap();
-    let splits = matches.values_of("splits");
+    let splits = matches.value_of("splits");
     let verbose = matches.is_present("verbose");
 
+    let signed_sections_rx = match splits {
+        None => None,
+        Some(splits) => Some(
+            RegexBuilder::new()
+                .unicode(true)
+                .anchored(true)
+                .dot_matches_new_line(false)
+                .build(splits)
+                .map_err(|_| WSError::InvalidArgument)?,
+        ),
+    };
     if action == "show" {
         show(input_file.unwrap(), verbose)?;
     } else if action == "keygen" {
@@ -103,18 +115,18 @@ fn main() -> Result<(), WSError> {
         } else {
             panic!("Secret key file is required");
         };
-        let mut splits: Vec<usize> = splits
-            .unwrap_or_default()
-            .map(|x| x.parse::<usize>().unwrap())
-            .collect();
-        splits.sort_unstable();
         let output_file = output_file.expect("Missing output file");
         let input_file = input_file.expect("Missing input file");
         let module = Module::deserialize_from_file(input_file)?;
         let module = split(module, |section| match section {
             Section::Standard(_) => true,
-            Section::Custom(custom_section) if custom_section.name() == "name" => true,
-            _ => false,
+            Section::Custom(custom_section) => {
+                if let Some(signed_sections_rx) = &signed_sections_rx {
+                    signed_sections_rx.is_match(custom_section.name().as_bytes())
+                } else {
+                    true
+                }
+            }
         })?;
         let (module, signature) = sign(&sk, module, signature_file.is_some())?;
         if let Some(signature_file) = signature_file {
