@@ -1,8 +1,8 @@
-use std::io::{self, prelude::*, BufReader, BufWriter};
+use std::io::{self, prelude::*};
 
 use crate::error::*;
 
-pub fn get7<R: Read>(reader: &mut BufReader<R>) -> Result<u8, WSError> {
+pub fn get7(reader: &mut impl Read) -> Result<u8, WSError> {
     let mut v: u8 = 0;
     for i in 0..1 {
         let mut byte = [0u8; 1];
@@ -21,7 +21,7 @@ pub fn get7<R: Read>(reader: &mut BufReader<R>) -> Result<u8, WSError> {
     Err(WSError::ParseError)
 }
 
-pub fn get32<R: Read>(reader: &mut BufReader<R>) -> Result<u32, WSError> {
+pub fn get32(reader: &mut impl Read) -> Result<u32, WSError> {
     let mut v: u32 = 0;
     for i in 0..5 {
         let mut byte = [0u8; 1];
@@ -34,7 +34,7 @@ pub fn get32<R: Read>(reader: &mut BufReader<R>) -> Result<u32, WSError> {
     Err(WSError::ParseError)
 }
 
-pub fn put<W: Write>(writer: &mut BufWriter<W>, mut v: u64) -> Result<(), WSError> {
+pub fn put(writer: &mut impl Write, mut v: u64) -> Result<(), WSError> {
     let mut byte = [0u8; 1];
     loop {
         byte[0] = (v & 0x7f) as u8;
@@ -49,17 +49,14 @@ pub fn put<W: Write>(writer: &mut BufWriter<W>, mut v: u64) -> Result<(), WSErro
     }
 }
 
-pub fn put_slice<W: Write>(
-    writer: &mut BufWriter<W>,
-    bytes: impl AsRef<[u8]>,
-) -> Result<(), WSError> {
+pub fn put_slice(writer: &mut impl Write, bytes: impl AsRef<[u8]>) -> Result<(), WSError> {
     let bytes = bytes.as_ref();
     put(writer, bytes.len() as _)?;
     writer.write_all(bytes)?;
     Ok(())
 }
 
-pub fn get_slice<R: Read>(reader: &mut BufReader<R>) -> Result<Vec<u8>, WSError> {
+pub fn get_slice(reader: &mut impl Read) -> Result<Vec<u8>, WSError> {
     let len = get32(reader)? as _;
     let mut bytes = vec![0u8; len];
     reader.read_exact(&mut bytes)?;

@@ -136,11 +136,11 @@ impl CustomSection {
     }
 
     pub fn outer_payload(&self) -> Result<Vec<u8>, WSError> {
-        let mut writer = BufWriter::new(io::Cursor::new(vec![]));
+        let mut writer = io::Cursor::new(vec![]);
         varint::put(&mut writer, self.name.len() as _)?;
         writer.write_all(self.name.as_bytes())?;
         writer.write_all(&self.payload)?;
-        Ok(writer.into_inner().unwrap().into_inner())
+        Ok(writer.into_inner())
     }
 }
 
@@ -247,7 +247,7 @@ impl Section {
     pub fn new(id: SectionId, payload: Vec<u8>) -> Result<Self, WSError> {
         match id {
             SectionId::CustomSection => {
-                let mut reader = BufReader::new(io::Cursor::new(payload));
+                let mut reader = io::Cursor::new(payload);
                 let name_len = varint::get32(&mut reader)? as usize;
                 let mut name_slice = vec![0u8; name_len];
                 reader.read_exact(&mut name_slice)?;
@@ -261,7 +261,7 @@ impl Section {
         }
     }
 
-    pub fn deserialize<R: Read>(reader: &mut BufReader<R>) -> Result<Option<Self>, WSError> {
+    pub fn deserialize(reader: &mut impl Read) -> Result<Option<Self>, WSError> {
         let id = match varint::get7(reader) {
             Ok(id) => SectionId::from(id),
             Err(WSError::Eof) => return Ok(None),
@@ -274,7 +274,7 @@ impl Section {
         Ok(Some(section))
     }
 
-    pub fn serialize<W: Write>(&self, writer: &mut BufWriter<W>) -> Result<(), WSError> {
+    pub fn serialize(&self, writer: &mut impl Write) -> Result<(), WSError> {
         let outer_payload;
         let payload = match self {
             Section::Standard(s) => s.payload(),
@@ -324,9 +324,7 @@ pub struct Module {
 }
 
 impl Module {
-    pub fn deserialize_from_file(file: impl AsRef<Path>) -> Result<Self, WSError> {
-        let fp = File::open(file.as_ref())?;
-        let mut reader = BufReader::new(fp);
+    pub fn deserialize(reader: &mut impl Read) -> Result<Self, WSError> {
         let mut header = [0u8; 8];
         reader.read_exact(&mut header)?;
         if header != WASM_HEADER {
@@ -334,19 +332,27 @@ impl Module {
         }
 
         let mut sections = Vec::new();
-        while let Some(section) = Section::deserialize(&mut reader)? {
+        while let Some(section) = Section::deserialize(reader)? {
             sections.push(section);
         }
         Ok(Module { sections })
     }
 
-    pub fn serialize_to_file(&self, file: impl AsRef<Path>) -> Result<(), WSError> {
-        let fp = File::create(file.as_ref())?;
-        let mut writer = BufWriter::new(fp);
+    pub fn deserialize_from_file(file: impl AsRef<Path>) -> Result<Self, WSError> {
+        let fp = File::open(file.as_ref())?;
+        Self::deserialize(&mut BufReader::new(fp))
+    }
+
+    pub fn serialize(&self, writer: &mut impl Write) -> Result<(), WSError> {
         writer.write_all(&WASM_HEADER)?;
         for section in &self.sections {
-            section.serialize(&mut writer)?;
+            section.serialize(writer)?;
         }
         Ok(())
+    }
+
+    pub fn serialize_to_file(&self, file: impl AsRef<Path>) -> Result<(), WSError> {
+        let fp = File::create(file.as_ref())?;
+        self.serialize(&mut BufWriter::new(fp))
     }
 }

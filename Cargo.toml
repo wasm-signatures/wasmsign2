@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.44"
+anyhow = "1.0.45"
 clap = { version = "2.33.3", default-features = false, features = ["wrap_help"] }
 ct-codecs = "1.1.1"
 ed25519-compact = "0.1.11"
