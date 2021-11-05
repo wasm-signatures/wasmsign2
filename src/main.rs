@@ -71,9 +71,9 @@ fn main() -> Result<(), WSError> {
             Arg::with_name("splits")
                 .long("--split")
                 .short("-s")
-                .value_name("position")
+                .value_name("regex")
                 .multiple(false)
-                .help("Split"),
+                .help("custom section names to be signed"),
         )
         .arg(Arg::with_name("verbose").short("-v").help("Verbose output"))
         .get_matches();
