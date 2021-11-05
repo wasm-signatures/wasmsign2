@@ -10,7 +10,7 @@ mod wasm_module;
 pub use error::*;
 pub use keys::*;
 use sig_sections::*;
-use wasm_module::*;
+pub use wasm_module::*;
 
 use ct_codecs::{Encoder, Hex};
 use hmac_sha256::Hash;
@@ -77,27 +77,50 @@ fn build_header_section(sk: &SecretKey, hashes: Vec<Vec<u8>>) -> Result<Section,
     Ok(header_section)
 }
 
+pub fn split<P>(module: Module, mut predicate: P) -> Result<Module, WSError>
+where
+    P: FnMut(&Section) -> bool,
+{
+    let mut out_sections = vec![];
+    let mut flip = false;
+    for (idx, section) in module.sections.into_iter().enumerate() {
+        if let Section::Custom(custom_section) = &section {
+            if custom_section.is_signature_delimiter() {
+                flip = !flip;
+                out_sections.push(section);
+                continue;
+            }
+        }
+        let section_can_be_signed = predicate(&section);
+        if idx == 0 {
+            flip = !section_can_be_signed;
+        } else if section_can_be_signed == flip {
+            let delimiter = new_delimiter_section()?;
+            out_sections.push(delimiter);
+            flip = !flip;
+        }
+        out_sections.push(section);
+    }
+    let delimiter = new_delimiter_section()?;
+    out_sections.push(delimiter);
+    Ok(Module {
+        sections: out_sections,
+    })
+}
+
 pub fn sign(
     sk: &SecretKey,
-    in_file: &str,
-    out_file: &str,
-    signature_file: Option<&str>,
-    splits: Option<Vec<usize>>,
-) -> Result<(), WSError> {
-    let splits = splits.unwrap_or_default();
-
-    let mut module = Module::deserialize_from_file(in_file)?;
+    mut module: Module,
+    detached: bool,
+) -> Result<(Module, Vec<u8>), WSError> {
     let mut hasher = Hash::new();
     let mut hashes = vec![];
 
     let mut out_sections = vec![];
     let header_section = Section::Custom(CustomSection::default());
-    if signature_file.is_none() {
+    if !detached {
         out_sections.push(header_section);
     }
-
-    let mut splits_cursor = splits.iter();
-    let mut next_split = splits_cursor.next();
     for (idx, section) in module.sections.iter().enumerate() {
         if let Section::Custom(custom_section) = section {
             if custom_section.is_signature_header() {
@@ -107,35 +130,27 @@ pub fn sign(
                 }
                 continue;
             }
-        }
-        if Some(&idx) == next_split {
-            let delimiter = new_delimiter_section()?;
-            hasher.update(delimiter.payload());
-            out_sections.push(delimiter);
-            hashes.push(hasher.finalize().to_vec());
-            hasher = Hash::new();
-            next_split = splits_cursor.next();
+            if custom_section.is_signature_delimiter() {
+                hasher.update(section.payload());
+                out_sections.push(section.clone());
+                hashes.push(hasher.finalize().to_vec());
+                hasher = Hash::new();
+                continue;
+            }
         }
         hasher.update(section.payload());
         out_sections.push(section.clone());
     }
-    let delimiter = new_delimiter_section()?;
-    hasher.update(delimiter.payload());
-    if signature_file.is_none() {
-        out_sections.push(delimiter);
-    }
     hashes.push(hasher.finalize().to_vec());
-
     let header_section = build_header_section(sk, hashes)?;
-
-    if let Some(signature_file) = signature_file {
-        File::create(signature_file)?.write_all(header_section.payload())?;
+    if detached {
+        Ok((module, header_section.payload().to_vec()))
     } else {
         out_sections[0] = header_section;
+        module.sections = out_sections;
+        let signature = module.sections[0].payload().to_vec();
+        Ok((module, signature))
     }
-    module.sections = out_sections;
-    module.serialize_to_file(out_file)?;
-    Ok(())
 }
 
 pub fn verify(

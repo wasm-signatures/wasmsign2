@@ -4,6 +4,8 @@ use wasmsign2::*;
 extern crate clap;
 
 use clap::Arg;
+use std::fs::File;
+use std::io::prelude::*;
 
 fn main() -> Result<(), WSError> {
     env_logger::builder()
@@ -108,7 +110,18 @@ fn main() -> Result<(), WSError> {
         splits.sort_unstable();
         let output_file = output_file.expect("Missing output file");
         let input_file = input_file.expect("Missing input file");
-        sign(&sk, input_file, output_file, signature_file, Some(splits))?;
+        let module = Module::deserialize_from_file(input_file)?;
+        let module = split(module, |section| match section {
+            Section::Standard(_) => true,
+            Section::Custom(custom_section) if custom_section.name() == "name" => true,
+            _ => false,
+        })?;
+        let (module, signature) = sign(&sk, module, signature_file.is_some())?;
+        if let Some(signature_file) = signature_file {
+            File::create(signature_file)?.write_all(&signature)?;
+        } else {
+            module.serialize_to_file(output_file)?;
+        }
         println!("* Signed module structure:\n");
         show(output_file, verbose)?;
     } else if action == "verify" {
