@@ -15,7 +15,7 @@ use hmac_sha256::Hash;
 use log::*;
 use std::collections::HashSet;
 use std::fs::File;
-use std::io::prelude::*;
+use std::io::{self, prelude::*};
 use std::ops::RangeInclusive;
 use std::str;
 
@@ -31,23 +31,52 @@ pub struct PublicKey {
 }
 
 impl PublicKey {
-    pub fn from_file(file: &str) -> Result<Self, WSError> {
-        let mut fp = File::open(file)?;
+    pub fn from_bytes(pk: &[u8]) -> Result<Self, WSError> {
+        let mut reader = io::Cursor::new(pk);
         let mut id = [0u8];
-        fp.read_exact(&mut id)?;
+        reader.read_exact(&mut id)?;
         if id[0] != ED25519_PK_ID {
             return Err(WSError::UnsupportedKeyType);
         }
         let mut bytes = vec![];
+        reader.read_to_end(&mut bytes)?;
+        Self::from_bytes(&bytes)
+    }
+
+    pub fn from_pem(pem: &str) -> Result<Self, WSError> {
+        let pk = ed25519_compact::PublicKey::from_pem(pem)?;
+        Ok(Self { pk })
+    }
+
+    pub fn from_der(der: &[u8]) -> Result<Self, WSError> {
+        let pk = ed25519_compact::PublicKey::from_der(der)?;
+        Ok(Self { pk })
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = vec![ED25519_PK_ID];
+        bytes.extend_from_slice(self.pk.as_ref());
+        bytes
+    }
+
+    pub fn to_pem(&self) -> String {
+        self.pk.to_pem()
+    }
+
+    pub fn to_der(&self) -> Vec<u8> {
+        self.pk.to_der()
+    }
+
+    pub fn from_file(file: &str) -> Result<Self, WSError> {
+        let mut fp = File::open(file)?;
+        let mut bytes = vec![];
         fp.read_to_end(&mut bytes)?;
-        let pk = ed25519_compact::PublicKey::from_slice(&bytes)?;
-        Ok(PublicKey { pk })
+        Self::from_bytes(&bytes)
     }
 
     pub fn to_file(&self, file: &str) -> Result<(), WSError> {
         let mut fp = File::create(file)?;
-        fp.write_all(&[ED25519_PK_ID])?;
-        fp.write_all(&*self.pk)?;
+        fp.write_all(&self.to_bytes())?;
         Ok(())
     }
 }
@@ -57,23 +86,52 @@ pub struct SecretKey {
 }
 
 impl SecretKey {
-    pub fn from_file(file: &str) -> Result<Self, WSError> {
-        let mut fp = File::open(file)?;
+    pub fn from_bytes(pk: &[u8]) -> Result<Self, WSError> {
+        let mut reader = io::Cursor::new(pk);
         let mut id = [0u8];
-        fp.read_exact(&mut id)?;
+        reader.read_exact(&mut id)?;
         if id[0] != ED25519_SK_ID {
             return Err(WSError::UnsupportedKeyType);
         }
         let mut bytes = vec![];
+        reader.read_to_end(&mut bytes)?;
+        Self::from_bytes(&bytes)
+    }
+
+    pub fn from_pem(pem: &str) -> Result<Self, WSError> {
+        let sk = ed25519_compact::SecretKey::from_pem(pem)?;
+        Ok(Self { sk })
+    }
+
+    pub fn from_der(der: &[u8]) -> Result<Self, WSError> {
+        let sk = ed25519_compact::SecretKey::from_der(der)?;
+        Ok(Self { sk })
+    }
+
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = vec![ED25519_SK_ID];
+        bytes.extend_from_slice(self.sk.as_ref());
+        bytes
+    }
+
+    pub fn to_pem(&self) -> String {
+        self.sk.to_pem()
+    }
+
+    pub fn to_der(&self) -> Vec<u8> {
+        self.sk.to_der()
+    }
+
+    pub fn from_file(file: &str) -> Result<Self, WSError> {
+        let mut fp = File::open(file)?;
+        let mut bytes = vec![];
         fp.read_to_end(&mut bytes)?;
-        let sk = ed25519_compact::SecretKey::from_slice(&bytes)?;
-        Ok(SecretKey { sk })
+        Self::from_bytes(&bytes)
     }
 
     pub fn to_file(&self, file: &str) -> Result<(), WSError> {
         let mut fp = File::create(file)?;
-        fp.write_all(&[ED25519_SK_ID])?;
-        fp.write_all(&*self.sk)?;
+        fp.write_all(&self.to_bytes())?;
         Ok(())
     }
 }
@@ -99,16 +157,6 @@ pub fn show(file: &str, verbose: bool) -> Result<(), WSError> {
         println!("{}:\t{}", idx, section.display(verbose));
     }
     Ok(())
-}
-
-fn delimiter_section() -> Result<Section, WSError> {
-    let mut custom_payload = vec![0u8; 16];
-    getrandom::getrandom(&mut custom_payload)
-        .map_err(|_| WSError::InternalError("RNG error".to_string()))?;
-    Ok(Section::Custom(CustomSection::new(
-        SIGNATURE_SECTION_DELIMITER_NAME.to_string(),
-        custom_payload,
-    )))
 }
 
 fn build_header_section(sk: &SecretKey, hashes: Vec<Vec<u8>>) -> Result<Section, WSError> {
@@ -187,7 +235,7 @@ pub fn sign(
             }
         }
         if Some(&idx) == next_split {
-            let delimiter = delimiter_section()?;
+            let delimiter = new_delimiter_section()?;
             hasher.update(delimiter.payload());
             out_sections.push(delimiter);
             hashes.push(hasher.finalize().to_vec());
@@ -197,7 +245,7 @@ pub fn sign(
         hasher.update(section.payload());
         out_sections.push(section.clone());
     }
-    let delimiter = delimiter_section()?;
+    let delimiter = new_delimiter_section()?;
     hasher.update(delimiter.payload());
     if signature_file.is_none() {
         out_sections.push(delimiter);

@@ -7,7 +7,7 @@ edition = "2021"
 anyhow = "1.0.45"
 clap = { version = "2.33.3", default-features = false, features = ["wrap_help"] }
 ct-codecs = "1.1.1"
-ed25519-compact = "0.1.11"
+ed25519-compact = { version = "0.1.11", features = ["pem"] }
 env_logger = { version = "0.9.0", default-features = false, features = ["humantime"] }
 getrandom = "0.2.3"
 hmac-sha256 = "0.1.7"

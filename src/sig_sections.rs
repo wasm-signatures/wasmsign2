@@ -3,6 +3,7 @@ use std::io::{prelude::*, BufReader, BufWriter};
 
 use crate::error::*;
 use crate::varint;
+use crate::wasm_module::*;
 
 pub const SIGNATURE_SECTION_HEADER_NAME: &str = "signature";
 pub const SIGNATURE_SECTION_DELIMITER_NAME: &str = "signature_delimiter";
@@ -114,4 +115,14 @@ impl SignatureData {
             signed_hashes_set,
         })
     }
+}
+
+pub fn new_delimiter_section() -> Result<Section, WSError> {
+    let mut custom_payload = vec![0u8; 16];
+    getrandom::getrandom(&mut custom_payload)
+        .map_err(|_| WSError::InternalError("RNG error".to_string()))?;
+    Ok(Section::Custom(CustomSection::new(
+        SIGNATURE_SECTION_DELIMITER_NAME.to_string(),
+        custom_payload,
+    )))
 }
