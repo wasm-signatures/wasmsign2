@@ -20,7 +20,9 @@ impl PublicKey {
         }
         let mut bytes = vec![];
         reader.read_to_end(&mut bytes)?;
-        Self::from_bytes(&bytes)
+        Ok(Self {
+            pk: ed25519_compact::PublicKey::from_slice(&bytes)?,
+        })
     }
 
     pub fn from_pem(pem: &str) -> Result<Self, WSError> {
@@ -66,8 +68,8 @@ pub struct SecretKey {
 }
 
 impl SecretKey {
-    pub fn from_bytes(pk: &[u8]) -> Result<Self, WSError> {
-        let mut reader = io::Cursor::new(pk);
+    pub fn from_bytes(sk: &[u8]) -> Result<Self, WSError> {
+        let mut reader = io::Cursor::new(sk);
         let mut id = [0u8];
         reader.read_exact(&mut id)?;
         if id[0] != ED25519_SK_ID {
@@ -75,7 +77,9 @@ impl SecretKey {
         }
         let mut bytes = vec![];
         reader.read_to_end(&mut bytes)?;
-        Self::from_bytes(&bytes)
+        Ok(Self {
+            sk: ed25519_compact::SecretKey::from_slice(&bytes)?,
+        })
     }
 
     pub fn from_pem(pem: &str) -> Result<Self, WSError> {
