@@ -169,9 +169,12 @@ pub fn verify(
     let signature_header: &Section;
     let signature_header_from_file;
     if let Some(signature_file) = signature_file {
-        let mut custom_payload = vec![];
-        File::open(signature_file)?.read_to_end(&mut custom_payload)?;
-        signature_header_from_file = Section::new(SectionId::CustomSection, custom_payload)?;
+        let mut signature_data_bin = vec![];
+        File::open(signature_file)?.read_to_end(&mut signature_data_bin)?;
+        signature_header_from_file = Section::Custom(CustomSection::new(
+            SIGNATURE_SECTION_HEADER_NAME.to_string(),
+            signature_data_bin,
+        ));
         signature_header = &signature_header_from_file;
     } else {
         signature_header = sections.next().ok_or(WSError::ParseError)?.1;
