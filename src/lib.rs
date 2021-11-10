@@ -2,12 +2,14 @@
 #![forbid(unsafe_code)]
 
 mod error;
+mod hash;
 mod keys;
 mod sig_sections;
 mod varint;
 mod wasm_module;
 
 pub use error::*;
+use hash::Hash;
 pub use keys::*;
 use sig_sections::*;
 pub use wasm_module::*;
@@ -15,44 +17,12 @@ pub use wasm_module::*;
 use ct_codecs::{Encoder, Hex};
 use log::*;
 use std::collections::HashSet;
-use std::io::{self, Read, Write};
+use std::io::Read;
 use std::str;
 
 const SIGNATURE_DOMAIN: &str = "wasmsig";
 const SIGNATURE_VERSION: u8 = 0x01;
 const SIGNATURE_HASH_FUNCTION: u8 = 0x01;
-
-#[derive(Clone, Copy)]
-struct Hash {
-    hash: hmac_sha256::Hash,
-}
-
-impl Hash {
-    fn new() -> Self {
-        Hash {
-            hash: hmac_sha256::Hash::new(),
-        }
-    }
-
-    fn update<T: AsRef<[u8]>>(&mut self, data: T) {
-        self.hash.update(data);
-    }
-
-    fn finalize(&self) -> [u8; 32] {
-        self.hash.finalize()
-    }
-}
-
-impl Write for Hash {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.hash.update(buf);
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
-    }
-}
 
 impl Module {
     pub fn show(&self, verbose: bool) -> Result<(), WSError> {
