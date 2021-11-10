@@ -279,12 +279,18 @@ impl PublicKey {
             return Err(WSError::VerificationFailed);
         }
 
-        let mut remaining_bytes = Vec::new();
-        reader.read_to_end(&mut remaining_bytes)?;
         let mut hasher = Hash::new();
-        hasher.update(remaining_bytes);
-
+        let mut buf = vec![0u8; 65536];
+        loop {
+            match reader.read(&mut buf)? {
+                0 => break,
+                n => {
+                    hasher.update(&buf[..n]);
+                }
+            }
+        }
         let h = hasher.finalize().to_vec();
+
         if valid_hashes.contains(&h) {
             debug!("Signature is valid");
             Ok(())
