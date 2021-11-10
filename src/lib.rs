@@ -71,7 +71,6 @@ impl Module {
 impl SecretKey {
     pub fn sign(&self, mut module: Module) -> Result<Module, WSError> {
         let mut out_sections = vec![Section::Custom(CustomSection::default())];
-        module = module.split(|_| true)?;
         let mut hasher = Hash::new();
         for section in module.sections.into_iter() {
             if section.is_signature_header() {
@@ -115,6 +114,7 @@ impl SecretKey {
         mut module: Module,
         key_id: Option<&Vec<u8>>,
         detached: bool,
+        allow_extensions: bool,
     ) -> Result<(Module, Vec<u8>), WSError> {
         let mut hasher = Hash::new();
         let mut hashes = vec![];
@@ -122,7 +122,9 @@ impl SecretKey {
         let mut out_sections = vec![];
         let header_section = Section::Custom(CustomSection::default());
         if !detached {
-            module = module.split(|_| true)?;
+            if allow_extensions {
+                module = module.split(|_| true)?;
+            }
             out_sections.push(header_section);
         }
         let mut previous_signature_data = None;
@@ -275,14 +277,8 @@ impl PublicKey {
         }
 
         let mut hasher = Hash::new();
-        let mut last_section_is_a_delimiter = false;
         for section in sections {
             hasher.update(section.payload());
-            last_section_is_a_delimiter = section.is_signature_delimiter();
-        }
-        if !last_section_is_a_delimiter {
-            debug!("The last section is not a delimiter");
-            return Err(WSError::VerificationFailed);
         }
 
         let h = hasher.finalize().to_vec();
@@ -347,12 +343,10 @@ impl PublicKey {
         let mut matching_section_ranges = vec![];
         debug!("Computed hashes:");
         let mut part_must_be_signed: Option<bool> = None;
-        let mut last_section_is_a_delimiter = false;
         for (idx, section) in sections {
             let section_must_be_signed = predicate(section);
             hasher.update(section.payload());
             if section.is_signature_delimiter() {
-                last_section_is_a_delimiter = true;
                 let h = hasher.finalize().to_vec();
                 debug!("  - [{}]", Hex::encode_to_string(&h).unwrap());
                 if part_must_be_signed == Some(false) {
@@ -365,7 +359,6 @@ impl PublicKey {
                 hasher = Hash::new();
                 part_must_be_signed = None;
             } else {
-                last_section_is_a_delimiter = false;
                 match part_must_be_signed {
                     None => part_must_be_signed = Some(section_must_be_signed),
                     Some(false) if section_must_be_signed => {
@@ -377,10 +370,6 @@ impl PublicKey {
                     _ => {}
                 }
             }
-        }
-        if !last_section_is_a_delimiter {
-            debug!("The last section is not a delimiter");
-            return Err(WSError::VerificationFailed);
         }
         debug!("Valid, signed ranges:");
         for range in &matching_section_ranges {

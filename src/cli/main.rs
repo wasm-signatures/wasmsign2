@@ -148,7 +148,7 @@ fn main() -> Result<(), WSError> {
             let input_file = input_file.expect("Missing input file");
             let module = Module::deserialize_from_file(input_file)?;
             let (module, signature) =
-                sk.sign_multi(module, key_id.as_ref(), signature_file.is_some())?;
+                sk.sign_multi(module, key_id.as_ref(), signature_file.is_some(), false)?;
             if let Some(signature_file) = signature_file {
                 module.serialize_to_file(output_file)?;
                 File::create(signature_file)?.write_all(&signature)?;
