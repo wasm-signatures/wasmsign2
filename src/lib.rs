@@ -158,6 +158,7 @@ pub fn sign(
         out_sections.push(header_section);
     }
     let mut previous_signature_data = None;
+    let mut last_section_was_a_signature = false;
     for (idx, section) in module.sections.iter().enumerate() {
         if let Section::Custom(custom_section) = section {
             if custom_section.is_signature_header() {
@@ -175,13 +176,17 @@ pub fn sign(
                 out_sections.push(section.clone());
                 hashes.push(hasher.finalize().to_vec());
                 hasher = Hash::new();
+                last_section_was_a_signature = true;
                 continue;
             }
+            last_section_was_a_signature = false;
         }
         hasher.update(section.payload());
         out_sections.push(section.clone());
     }
-    hashes.push(hasher.finalize().to_vec());
+    if !last_section_was_a_signature {
+        hashes.push(hasher.finalize().to_vec());
+    }
     let header_section = build_header_section(previous_signature_data, sk, hashes)?;
     if detached {
         Ok((module, header_section.payload().to_vec()))
