@@ -370,4 +370,29 @@ impl Module {
         let fp = File::create(file.as_ref())?;
         self.serialize(&mut BufWriter::new(fp))
     }
+
+    pub fn stream<T: Read>(mut reader: T) -> Result<SectionsIterator<T>, WSError> {
+        let mut header = [0u8; 8];
+        reader.read_exact(&mut header)?;
+        if header != WASM_HEADER {
+            return Err(WSError::ParseError);
+        }
+        Ok(SectionsIterator { reader })
+    }
+}
+
+pub struct SectionsIterator<T: Read> {
+    reader: T,
+}
+
+impl<T: Read> Iterator for SectionsIterator<T> {
+    type Item = Result<Section, WSError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match Section::deserialize(&mut self.reader) {
+            Err(e) => Some(Err(e)),
+            Ok(None) => None,
+            Ok(Some(section)) => Some(Ok(section)),
+        }
+    }
 }
