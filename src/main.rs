@@ -96,81 +96,90 @@ fn main() -> Result<(), WSError> {
                 .map_err(|_| WSError::InvalidArgument)?,
         ),
     };
-    if action == "show" {
-        show(input_file.unwrap(), verbose)?;
-    } else if action == "keygen" {
-        let kp = KeyPair::generate();
-        let sk_file = matches.value_of("secret_key");
-        let pk_file = matches.value_of("public_key");
-        if let Some(sk_file) = sk_file {
-            kp.sk.to_file(sk_file)?;
+    match action {
+        "show" => {
+            show(input_file.unwrap(), verbose)?;
         }
-        if let Some(pk_file) = pk_file {
-            kp.pk.to_file(pk_file)?;
-        }
-    } else if action == "split" {
-        let output_file = output_file.expect("Missing output file");
-        let input_file = input_file.expect("Missing input file");
-        let mut module = Module::deserialize_from_file(input_file)?;
-        module = split(module, |section| match section {
-            Section::Standard(_) => true,
-            Section::Custom(custom_section) => {
-                if let Some(signed_sections_rx) = &signed_sections_rx {
-                    signed_sections_rx.is_match(custom_section.name().as_bytes())
-                } else {
-                    true
-                }
+        "keygen" => {
+            let kp = KeyPair::generate();
+            let sk_file = matches.value_of("secret_key");
+            let pk_file = matches.value_of("public_key");
+            if let Some(sk_file) = sk_file {
+                kp.sk.to_file(sk_file)?;
             }
-        })?;
-        module.serialize_to_file(output_file)?;
-        show(output_file, verbose)?;
-    } else if action == "sign" {
-        let sk_file = matches.value_of("secret_key");
-        let sk = if let Some(sk_file) = sk_file {
-            SecretKey::from_file(sk_file)?
-        } else {
-            panic!("Secret key file is required");
-        };
-        let pk_file = matches.value_of("public_key");
-        let pk = if let Some(pk_file) = pk_file {
-            Some(PublicKey::from_file(pk_file)?.attach_default_key_id())
-        } else {
-            None
-        };
-        let output_file = output_file.expect("Missing output file");
-        let input_file = input_file.expect("Missing input file");
-        let module = Module::deserialize_from_file(input_file)?;
-        let (module, signature) = sign(&sk, pk.as_ref(), module, signature_file.is_some())?;
-        if let Some(signature_file) = signature_file {
-            module.serialize_to_file(output_file)?;
-            File::create(signature_file)?.write_all(&signature)?;
-        } else {
-            module.serialize_to_file(output_file)?;
-        }
-        println!("* Signed module structure:\n");
-        show(output_file, verbose)?;
-    } else if action == "verify" {
-        let pk_file = matches.value_of("public_key").expect("Missing public key");
-        let pk = PublicKey::from_file(pk_file)?.attach_default_key_id();
-        let input_file = input_file.expect("Missing input file");
-        let module = Module::deserialize_from_file(input_file)?;
-        let mut detached_signatures_ = vec![];
-        let detached_signatures = match signature_file {
-            None => None,
-            Some(signature_file) => {
-                File::open(signature_file)?.read_to_end(&mut detached_signatures_)?;
-                Some(detached_signatures_.as_slice())
+            if let Some(pk_file) = pk_file {
+                kp.pk.to_file(pk_file)?;
             }
-        };
-        if let Some(signed_sections_rx) = &signed_sections_rx {
-            verify(&pk, &module, detached_signatures, |section| match section {
+        }
+        "split" => {
+            let output_file = output_file.expect("Missing output file");
+            let input_file = input_file.expect("Missing input file");
+            let mut module = Module::deserialize_from_file(input_file)?;
+            module = split(module, |section| match section {
                 Section::Standard(_) => true,
                 Section::Custom(custom_section) => {
-                    signed_sections_rx.is_match(custom_section.name().as_bytes())
+                    if let Some(signed_sections_rx) = &signed_sections_rx {
+                        signed_sections_rx.is_match(custom_section.name().as_bytes())
+                    } else {
+                        true
+                    }
                 }
             })?;
-        } else {
-            verify_all(&pk, &module)?;
+            module.serialize_to_file(output_file)?;
+            show(output_file, verbose)?;
+        }
+        "sign" => {
+            let sk_file = matches.value_of("secret_key");
+            let sk = if let Some(sk_file) = sk_file {
+                SecretKey::from_file(sk_file)?
+            } else {
+                panic!("Secret key file is required");
+            };
+            let pk_file = matches.value_of("public_key");
+            let pk = if let Some(pk_file) = pk_file {
+                Some(PublicKey::from_file(pk_file)?.attach_default_key_id())
+            } else {
+                None
+            };
+            let output_file = output_file.expect("Missing output file");
+            let input_file = input_file.expect("Missing input file");
+            let module = Module::deserialize_from_file(input_file)?;
+            let (module, signature) = sign(&sk, pk.as_ref(), module, signature_file.is_some())?;
+            if let Some(signature_file) = signature_file {
+                module.serialize_to_file(output_file)?;
+                File::create(signature_file)?.write_all(&signature)?;
+            } else {
+                module.serialize_to_file(output_file)?;
+            }
+            println!("* Signed module structure:\n");
+            show(output_file, verbose)?;
+        }
+        "verify" => {
+            let pk_file = matches.value_of("public_key").expect("Missing public key");
+            let pk = PublicKey::from_file(pk_file)?.attach_default_key_id();
+            let input_file = input_file.expect("Missing input file");
+            let module = Module::deserialize_from_file(input_file)?;
+            let mut detached_signatures_ = vec![];
+            let detached_signatures = match signature_file {
+                None => None,
+                Some(signature_file) => {
+                    File::open(signature_file)?.read_to_end(&mut detached_signatures_)?;
+                    Some(detached_signatures_.as_slice())
+                }
+            };
+            if let Some(signed_sections_rx) = &signed_sections_rx {
+                verify(&pk, &module, detached_signatures, |section| match section {
+                    Section::Standard(_) => true,
+                    Section::Custom(custom_section) => {
+                        signed_sections_rx.is_match(custom_section.name().as_bytes())
+                    }
+                })?;
+            } else {
+                verify_all(&pk, &module)?;
+            }
+        }
+        _ => {
+            panic!("Unknown action");
         }
     }
     Ok(())
