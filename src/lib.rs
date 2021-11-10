@@ -16,8 +16,6 @@ use ct_codecs::{Encoder, Hex};
 use hmac_sha256::Hash;
 use log::*;
 use std::collections::HashSet;
-use std::fs::File;
-use std::io::prelude::*;
 use std::ops::RangeInclusive;
 use std::str;
 
@@ -74,7 +72,7 @@ fn build_header_section(
         _ => return Err(WSError::IncompatibleSignatureVersion),
     };
 
-    let mut new_hashes_set = true;
+    let mut new_hashes = true;
     for previous_signed_hashes_set in &mut signed_hashes_set {
         if previous_signed_hashes_set.hashes == hashes {
             if previous_signed_hashes_set.signatures.iter().any(|sig| {
@@ -88,11 +86,11 @@ fn build_header_section(
             previous_signed_hashes_set
                 .signatures
                 .push(signature_for_hashes.clone());
-            new_hashes_set = false;
+            new_hashes = false;
             break;
         }
     }
-    if new_hashes_set {
+    if new_hashes {
         debug!("No matching hash was previously signed.");
         let signatures = vec![signature_for_hashes];
         let new_signed_parts = SignedHashes { hashes, signatures };
@@ -198,22 +196,19 @@ pub fn sign(
 
 pub fn verify(
     pk: &PublicKey,
-    in_file: &str,
-    signature_file: Option<&str>,
+    module: &Module,
+    detached_signature: Option<&[u8]>,
 ) -> Result<Vec<RangeInclusive<usize>>, WSError> {
-    let module = Module::deserialize_from_file(in_file)?;
     let sections_len = module.sections.len();
     let mut sections = module.sections.iter().enumerate();
     let signature_header: &Section;
-    let signature_header_from_file;
-    if let Some(signature_file) = signature_file {
-        let mut signature_data_bin = vec![];
-        File::open(signature_file)?.read_to_end(&mut signature_data_bin)?;
-        signature_header_from_file = Section::Custom(CustomSection::new(
+    let signature_header_from_detached_signature;
+    if let Some(detached_signature) = &detached_signature {
+        signature_header_from_detached_signature = Section::Custom(CustomSection::new(
             SIGNATURE_SECTION_HEADER_NAME.to_string(),
-            signature_data_bin,
+            detached_signature.to_vec(),
         ));
-        signature_header = &signature_header_from_file;
+        signature_header = &signature_header_from_detached_signature;
     } else {
         signature_header = sections.next().ok_or(WSError::ParseError)?.1;
     }
@@ -294,7 +289,7 @@ pub fn verify(
                 hasher = Hash::new();
             }
             _ => {
-                if idx + 1 == sections_len && signature_file.is_none() {
+                if idx + 1 == sections_len && detached_signature.is_none() {
                     return Err(WSError::VerificationFailed);
                 }
             }

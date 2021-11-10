@@ -143,7 +143,15 @@ fn main() -> Result<(), WSError> {
         let pk_file = matches.value_of("public_key").expect("Missing public key");
         let pk = PublicKey::from_file(pk_file)?;
         let input_file = input_file.expect("Missing input file");
-        verify(&pk, input_file, signature_file)?;
+        let module = Module::deserialize_from_file(input_file)?;
+        let _ = match signature_file {
+            None => verify(&pk, &module, None)?,
+            Some(signature_file) => {
+                let mut detached_signatures = vec![];
+                File::open(signature_file)?.read_to_end(&mut detached_signatures)?;
+                verify(&pk, &module, Some(&detached_signatures))?
+            }
+        };
     }
     Ok(())
 }
