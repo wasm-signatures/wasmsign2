@@ -38,4 +38,7 @@ pub enum WSError {
 
     #[error("Sections can only be verified between pre-defined boundaries")]
     InvalidVerificationPredicate,
+
+    #[error("Signature already attached")]
+    SignatureAlreadyAttached,
 }

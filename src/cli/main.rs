@@ -62,7 +62,7 @@ fn main() -> Result<(), WSError> {
             Arg::with_name("action")
                 .long("--action")
                 .short("-a")
-                .value_name("action (show, split, sign, verify, keygen)")
+                .value_name("action (show, split, sign, verify, keygen, detach, attach)")
                 .multiple(false)
                 .required(true)
                 .help("Action"),
@@ -181,6 +181,25 @@ fn main() -> Result<(), WSError> {
             } else {
                 pk.verify(&mut reader)?;
             }
+        }
+        "detach" => {
+            let input_file = input_file.expect("Missing input file");
+            let output_file = output_file.expect("Missing output file");
+            let signature_file = signature_file.expect("Missing detached signature file");
+            let module = Module::deserialize_from_file(input_file)?;
+            let (module, detached_signature) = module.detach_signature()?;
+            File::create(signature_file)?.write_all(&detached_signature)?;
+            module.serialize_to_file(output_file)?;
+        }
+        "attach" => {
+            let input_file = input_file.expect("Missing input file");
+            let output_file = output_file.expect("Missing output file");
+            let signature_file = signature_file.expect("Missing detached signature file");
+            let mut detached_signature = vec![];
+            File::open(signature_file)?.read_to_end(&mut detached_signature)?;
+            let mut module = Module::deserialize_from_file(input_file)?;
+            module = module.attach_signature(&detached_signature)?;
+            module.serialize_to_file(output_file)?;
         }
         _ => {
             panic!("Unknown action");

@@ -68,6 +68,45 @@ impl Module {
             sections: out_sections,
         })
     }
+
+    pub fn detach_signature(mut self) -> Result<(Module, Vec<u8>), WSError> {
+        let mut out_sections = vec![];
+        let mut sections = self.sections.into_iter();
+        let detached_signature = match sections.next() {
+            None => return Err(WSError::NoSignatures),
+            Some(section) => {
+                if !section.is_signature_header() {
+                    return Err(WSError::NoSignatures);
+                }
+                section.payload().to_vec()
+            }
+        };
+        for section in sections {
+            out_sections.push(section);
+        }
+        self.sections = out_sections;
+        debug!("Signature detached");
+        Ok((self, detached_signature))
+    }
+
+    pub fn attach_signature(mut self, detached_signature: &[u8]) -> Result<Module, WSError> {
+        let mut out_sections = vec![];
+        let sections = self.sections.into_iter();
+        let signature_header = Section::Custom(CustomSection::new(
+            SIGNATURE_SECTION_HEADER_NAME.to_string(),
+            detached_signature.to_vec(),
+        ));
+        out_sections.push(signature_header);
+        for section in sections {
+            if section.is_signature_header() {
+                return Err(WSError::SignatureAlreadyAttached);
+            }
+            out_sections.push(section);
+        }
+        self.sections = out_sections;
+        debug!("Signature attached");
+        Ok(self)
+    }
 }
 
 impl SecretKey {
