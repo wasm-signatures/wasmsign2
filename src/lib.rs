@@ -101,10 +101,9 @@ fn build_header_section(
         hash_function: SIGNATURE_HASH_FUNCTION,
         signed_hashes_set,
     };
-    let signature_data_bin = signature_data.serialize()?;
     let header_section = Section::Custom(CustomSection::new(
         SIGNATURE_SECTION_HEADER_NAME.to_string(),
-        signature_data_bin,
+        signature_data.serialize()?,
     ));
     Ok(header_section)
 }
@@ -144,6 +143,47 @@ where
     Ok(Module {
         sections: out_sections,
     })
+}
+
+pub fn sign_all(sk: &SecretKey, mut module: Module) -> Result<Module, WSError> {
+    let mut out_sections = vec![Section::Custom(CustomSection::default())];
+    module = split(module, |_| true)?;
+    let mut hasher = Hash::new();
+    for section in module.sections.into_iter() {
+        if section.is_signature_header() {
+            continue;
+        }
+        hasher.update(section.payload());
+        out_sections.push(section);
+    }
+    let h = hasher.finalize().to_vec();
+
+    let mut msg: Vec<u8> = vec![];
+    msg.extend_from_slice(SIGNATURE_DOMAIN.as_bytes());
+    msg.extend_from_slice(&[SIGNATURE_VERSION, SIGNATURE_HASH_FUNCTION]);
+
+    let signature = sk.sk.sign(msg, None).to_vec();
+
+    let signature_for_hashes = SignatureForHashes {
+        key_id: None,
+        signature,
+    };
+    let signed_hashes_set = vec![SignedHashes {
+        hashes: vec![h],
+        signatures: vec![signature_for_hashes],
+    }];
+    let signature_data = SignatureData {
+        specification_version: SIGNATURE_VERSION,
+        hash_function: SIGNATURE_HASH_FUNCTION,
+        signed_hashes_set,
+    };
+    out_sections[0] = Section::Custom(CustomSection::new(
+        SIGNATURE_SECTION_HEADER_NAME.to_string(),
+        signature_data.serialize()?,
+    ));
+
+    module.sections = out_sections;
+    Ok(module)
 }
 
 pub fn sign(
