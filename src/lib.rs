@@ -205,54 +205,12 @@ pub fn sign(
     }
 }
 
-pub fn verify<P>(
+fn valid_hashes_for_pk<'t>(
+    signed_hashes_set: &'t [SignedHashes],
     pk: &PublicKey,
-    module: &Module,
-    detached_signature: Option<&[u8]>,
-    mut predicate: P,
-) -> Result<(), WSError>
-where
-    P: FnMut(&Section) -> bool,
-{
-    let sections_len = module.sections.len();
-    let mut sections = module.sections.iter().enumerate();
-    let signature_header: &Section;
-    let signature_header_from_detached_signature;
-    if let Some(detached_signature) = &detached_signature {
-        signature_header_from_detached_signature = Section::Custom(CustomSection::new(
-            SIGNATURE_SECTION_HEADER_NAME.to_string(),
-            detached_signature.to_vec(),
-        ));
-        signature_header = &signature_header_from_detached_signature;
-    } else {
-        signature_header = sections.next().ok_or(WSError::ParseError)?.1;
-    }
-    let signature_header = match signature_header {
-        Section::Custom(custom_section) if custom_section.is_signature_header() => custom_section,
-        _ => {
-            debug!("This module is not signed");
-            return Err(WSError::NoSignatures);
-        }
-    };
-    let signature_data = signature_header.signature_data()?;
-    if signature_data.specification_version != SIGNATURE_VERSION {
-        debug!(
-            "Unsupported specification version: {:02x}",
-            signature_data.specification_version
-        );
-        return Err(WSError::ParseError);
-    }
-    if signature_data.hash_function != SIGNATURE_HASH_FUNCTION {
-        debug!(
-            "Unsupported hash function: {:02x}",
-            signature_data.specification_version
-        );
-        return Err(WSError::ParseError);
-    }
-
+) -> Result<HashSet<&'t Vec<u8>>, WSError> {
     let mut valid_hashes = HashSet::new();
-    let signed_hashes_set = signature_data.signed_hashes_set;
-    for signed_part in &signed_hashes_set {
+    for signed_part in signed_hashes_set {
         let mut msg: Vec<u8> = vec![];
         msg.extend_from_slice(SIGNATURE_DOMAIN.as_bytes());
         msg.extend_from_slice(&[SIGNATURE_VERSION, SIGNATURE_HASH_FUNCTION]);
@@ -286,6 +244,48 @@ where
             }
         }
     }
+    Ok(valid_hashes)
+}
+
+pub fn verify<P>(
+    pk: &PublicKey,
+    module: &Module,
+    detached_signature: Option<&[u8]>,
+    mut predicate: P,
+) -> Result<(), WSError>
+where
+    P: FnMut(&Section) -> bool,
+{
+    let sections_len = module.sections.len();
+    let mut sections = module.sections.iter().enumerate();
+    let signature_header: &Section;
+    let signature_header_from_detached_signature;
+    if let Some(detached_signature) = &detached_signature {
+        signature_header_from_detached_signature = Section::Custom(CustomSection::new(
+            SIGNATURE_SECTION_HEADER_NAME.to_string(),
+            detached_signature.to_vec(),
+        ));
+        signature_header = &signature_header_from_detached_signature;
+    } else {
+        signature_header = sections.next().ok_or(WSError::ParseError)?.1;
+    }
+    let signature_header = match signature_header {
+        Section::Custom(custom_section) if custom_section.is_signature_header() => custom_section,
+        _ => {
+            debug!("This module is not signed");
+            return Err(WSError::NoSignatures);
+        }
+    };
+    let signature_data = signature_header.signature_data()?;
+    if signature_data.hash_function != SIGNATURE_HASH_FUNCTION {
+        debug!(
+            "Unsupported hash function: {:02x}",
+            signature_data.specification_version
+        );
+        return Err(WSError::ParseError);
+    }
+    let signed_hashes_set = signature_data.signed_hashes_set;
+    let valid_hashes = valid_hashes_for_pk(&signed_hashes_set, pk)?;
     if valid_hashes.is_empty() {
         debug!("No valid signatures");
         return Err(WSError::VerificationFailed);

@@ -1,9 +1,11 @@
+use log::*;
 use serde::{Deserialize, Serialize};
 use std::io::{prelude::*, BufReader, BufWriter};
 
 use crate::error::*;
 use crate::varint;
 use crate::wasm_module::*;
+use crate::SIGNATURE_VERSION;
 
 pub const SIGNATURE_SECTION_HEADER_NAME: &str = "signature";
 pub const SIGNATURE_SECTION_DELIMITER_NAME: &str = "signature_delimiter";
@@ -101,6 +103,13 @@ impl SignatureData {
     pub fn deserialize(bin: impl AsRef<[u8]>) -> Result<Self, WSError> {
         let mut reader = BufReader::new(bin.as_ref());
         let specification_version = varint::get7(&mut reader)?;
+        if specification_version != SIGNATURE_VERSION {
+            debug!(
+                "Unsupported specification version: {:02x}",
+                specification_version
+            );
+            return Err(WSError::ParseError);
+        }
         let hash_function = varint::get7(&mut reader)?;
         let signed_hashes_count = varint::get32(&mut reader)? as _;
         let mut signed_hashes_set = Vec::with_capacity(signed_hashes_count);
