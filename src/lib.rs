@@ -13,15 +13,46 @@ use sig_sections::*;
 pub use wasm_module::*;
 
 use ct_codecs::{Encoder, Hex};
-use hmac_sha256::Hash;
 use log::*;
 use std::collections::HashSet;
-use std::io::Read;
+use std::io::{self, Read, Write};
 use std::str;
 
 const SIGNATURE_DOMAIN: &str = "wasmsig";
 const SIGNATURE_VERSION: u8 = 0x01;
 const SIGNATURE_HASH_FUNCTION: u8 = 0x01;
+
+#[derive(Clone)]
+struct Hash {
+    hash: hmac_sha256::Hash,
+}
+
+impl Hash {
+    fn new() -> Self {
+        Hash {
+            hash: hmac_sha256::Hash::new(),
+        }
+    }
+
+    fn update<T: AsRef<[u8]>>(&mut self, data: T) {
+        self.hash.update(data);
+    }
+
+    fn finalize(&self) -> [u8; 32] {
+        self.hash.finalize()
+    }
+}
+
+impl Write for Hash {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.hash.update(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
 
 impl Module {
     pub fn show(&self, verbose: bool) -> Result<(), WSError> {
@@ -77,7 +108,7 @@ impl SecretKey {
             if section.is_signature_header() {
                 continue;
             }
-            hasher.update(section.serialize_vec()?);
+            section.serialize(&mut hasher)?;
             out_sections.push(section);
         }
         let h = hasher.finalize().to_vec();
@@ -143,7 +174,7 @@ impl SecretKey {
                     continue;
                 }
                 if custom_section.is_signature_delimiter() {
-                    hasher.update(section.serialize_vec()?);
+                    section.serialize(&mut hasher)?;
                     out_sections.push(section.clone());
                     hashes.push(hasher.finalize().to_vec());
                     hasher = Hash::new();
@@ -152,7 +183,7 @@ impl SecretKey {
                 }
                 last_section_was_a_signature = false;
             }
-            hasher.update(section.serialize_vec()?);
+            section.serialize(&mut hasher)?;
             out_sections.push(section.clone());
         }
         if !last_section_was_a_signature {
@@ -350,7 +381,7 @@ impl PublicKey {
         for (idx, section) in sections {
             let section = section?;
             let section_must_be_signed = predicate(&section);
-            hasher.update(section.serialize_vec()?);
+            section.serialize(&mut hasher)?;
             if section.is_signature_delimiter() {
                 let h = hasher.finalize().to_vec();
                 debug!("  - [{}]", Hex::encode_to_string(&h).unwrap());

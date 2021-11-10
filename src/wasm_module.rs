@@ -290,12 +290,6 @@ impl Section {
         Ok(())
     }
 
-    pub fn serialize_vec(&self) -> Result<Vec<u8>, WSError> {
-        let mut writer = io::Cursor::new(vec![]);
-        self.serialize(&mut writer)?;
-        Ok(writer.into_inner())
-    }
-
     pub fn is_signature_delimiter(&self) -> bool {
         match self {
             Section::Standard(_) => false,
