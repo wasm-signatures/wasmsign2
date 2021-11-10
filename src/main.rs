@@ -62,7 +62,7 @@ fn main() -> Result<(), WSError> {
             Arg::with_name("action")
                 .long("--action")
                 .short("-a")
-                .value_name("action (show, sign, verify, keygen)")
+                .value_name("action (show, split, sign, verify, keygen)")
                 .multiple(false)
                 .required(true)
                 .help("Action"),
@@ -108,6 +108,22 @@ fn main() -> Result<(), WSError> {
         if let Some(pk_file) = pk_file {
             kp.pk.to_file(pk_file)?;
         }
+    } else if action == "split" {
+        let output_file = output_file.expect("Missing output file");
+        let input_file = input_file.expect("Missing input file");
+        let mut module = Module::deserialize_from_file(input_file)?;
+        module = split(module, |section| match section {
+            Section::Standard(_) => true,
+            Section::Custom(custom_section) => {
+                if let Some(signed_sections_rx) = &signed_sections_rx {
+                    signed_sections_rx.is_match(custom_section.name().as_bytes())
+                } else {
+                    true
+                }
+            }
+        })?;
+        module.serialize_to_file(output_file)?;
+        show(output_file, verbose)?;
     } else if action == "sign" {
         let sk_file = matches.value_of("secret_key");
         let sk = if let Some(sk_file) = sk_file {
