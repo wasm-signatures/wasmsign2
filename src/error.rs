@@ -29,4 +29,10 @@ pub enum WSError {
 
     #[error("Invalid argument")]
     InvalidArgument,
+
+    #[error("Incompatible signature version")]
+    IncompatibleSignatureVersion,
+
+    #[error("Duplicate signature")]
+    DuplicateSignature,
 }

@@ -33,7 +33,11 @@ pub fn show(file: &str, verbose: bool) -> Result<(), WSError> {
     Ok(())
 }
 
-fn build_header_section(sk: &SecretKey, hashes: Vec<Vec<u8>>) -> Result<Section, WSError> {
+fn build_header_section(
+    previous_signature_data: Option<SignatureData>,
+    sk: &SecretKey,
+    hashes: Vec<Vec<u8>>,
+) -> Result<Section, WSError> {
     let mut msg: Vec<u8> = vec![];
     msg.extend_from_slice(SIGNATURE_DOMAIN.as_bytes());
     msg.extend_from_slice(&[SIGNATURE_VERSION, SIGNATURE_HASH_FUNCTION]);
@@ -59,11 +63,41 @@ fn build_header_section(sk: &SecretKey, hashes: Vec<Vec<u8>>) -> Result<Section,
         key_id: None,
         signature,
     };
-    let mut signatures = vec![];
-    signatures.push(signature_for_hashes);
-    let signed_parts = SignedHashes { hashes, signatures };
-    let mut signed_hashes_set = vec![];
-    signed_hashes_set.push(signed_parts);
+    let mut signed_hashes_set = match &previous_signature_data {
+        None => vec![],
+        Some(previous_signature_data)
+            if previous_signature_data.specification_version == SIGNATURE_VERSION
+                && previous_signature_data.hash_function == SIGNATURE_HASH_FUNCTION =>
+        {
+            previous_signature_data.signed_hashes_set.clone()
+        }
+        _ => return Err(WSError::IncompatibleSignatureVersion),
+    };
+
+    let mut new_hashes_set = true;
+    for previous_signed_hashes_set in &mut signed_hashes_set {
+        if previous_signed_hashes_set.hashes == hashes {
+            if previous_signed_hashes_set.signatures.iter().any(|sig| {
+                sig.key_id == signature_for_hashes.key_id
+                    && sig.signature == signature_for_hashes.signature
+            }) {
+                debug!("A matching hash set was already signed with that key.");
+                return Err(WSError::DuplicateSignature);
+            }
+            debug!("A matching hash set was already signed.");
+            previous_signed_hashes_set
+                .signatures
+                .push(signature_for_hashes.clone());
+            new_hashes_set = false;
+            break;
+        }
+    }
+    if new_hashes_set {
+        debug!("No matching hash was previously signed.");
+        let signatures = vec![signature_for_hashes];
+        let new_signed_parts = SignedHashes { hashes, signatures };
+        signed_hashes_set.push(new_signed_parts);
+    }
     let signature_data = SignatureData {
         specification_version: SIGNATURE_VERSION,
         hash_function: SIGNATURE_HASH_FUNCTION,
@@ -126,13 +160,17 @@ pub fn sign(
     if !detached {
         out_sections.push(header_section);
     }
+    let mut previous_signature_data = None;
     for (idx, section) in module.sections.iter().enumerate() {
         if let Section::Custom(custom_section) = section {
             if custom_section.is_signature_header() {
                 debug!("A signature section was already present.");
                 if idx != 0 {
-                    debug!("WARNING: the signature section was not the first module section.")
+                    error!("The signature section was not the first module section");
+                    continue;
                 }
+                assert_eq!(previous_signature_data, None);
+                previous_signature_data = Some(custom_section.signature_data()?);
                 continue;
             }
             if custom_section.is_signature_delimiter() {
@@ -147,7 +185,7 @@ pub fn sign(
         out_sections.push(section.clone());
     }
     hashes.push(hasher.finalize().to_vec());
-    let header_section = build_header_section(sk, hashes)?;
+    let header_section = build_header_section(previous_signature_data, sk, hashes)?;
     if detached {
         Ok((module, header_section.payload().to_vec()))
     } else {
