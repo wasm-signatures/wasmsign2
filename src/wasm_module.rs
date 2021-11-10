@@ -340,15 +340,10 @@ pub struct Module {
 
 impl Module {
     pub fn deserialize(reader: &mut impl Read) -> Result<Self, WSError> {
-        let mut header = [0u8; 8];
-        reader.read_exact(&mut header)?;
-        if header != WASM_HEADER {
-            return Err(WSError::ParseError);
-        }
-
+        let it = Self::stream(reader)?;
         let mut sections = Vec::new();
-        while let Some(section) = Section::deserialize(reader)? {
-            sections.push(section);
+        for section in it {
+            sections.push(section?);
         }
         Ok(Module { sections })
     }
@@ -371,7 +366,7 @@ impl Module {
         self.serialize(&mut BufWriter::new(fp))
     }
 
-    pub fn stream<T: Read>(mut reader: T) -> Result<SectionsIterator<T>, WSError> {
+    pub fn stream<T: Read>(reader: &mut T) -> Result<SectionsIterator<T>, WSError> {
         let mut header = [0u8; 8];
         reader.read_exact(&mut header)?;
         if header != WASM_HEADER {
@@ -381,15 +376,15 @@ impl Module {
     }
 }
 
-pub struct SectionsIterator<T: Read> {
-    reader: T,
+pub struct SectionsIterator<'t, T: Read> {
+    reader: &'t mut T,
 }
 
-impl<T: Read> Iterator for SectionsIterator<T> {
+impl<'t, T: Read> Iterator for SectionsIterator<'t, T> {
     type Item = Result<Section, WSError>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        match Section::deserialize(&mut self.reader) {
+        match Section::deserialize(self.reader) {
             Err(e) => Some(Err(e)),
             Ok(None) => None,
             Ok(Some(section)) => Some(Ok(section)),
