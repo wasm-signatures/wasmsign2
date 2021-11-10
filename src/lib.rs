@@ -77,7 +77,7 @@ impl SecretKey {
             if section.is_signature_header() {
                 continue;
             }
-            hasher.update(section.payload());
+            hasher.update(section.serialize_vec()?);
             out_sections.push(section);
         }
         let h = hasher.finalize().to_vec();
@@ -143,7 +143,7 @@ impl SecretKey {
                     continue;
                 }
                 if custom_section.is_signature_delimiter() {
-                    hasher.update(section.payload());
+                    hasher.update(section.serialize_vec()?);
                     out_sections.push(section.clone());
                     hashes.push(hasher.finalize().to_vec());
                     hasher = Hash::new();
@@ -152,7 +152,7 @@ impl SecretKey {
                 }
                 last_section_was_a_signature = false;
             }
-            hasher.update(section.payload());
+            hasher.update(section.serialize_vec()?);
             out_sections.push(section.clone());
         }
         if !last_section_was_a_signature {
@@ -251,9 +251,10 @@ impl SecretKey {
 
 impl PublicKey {
     pub fn verify(&self, reader: &mut impl Read) -> Result<(), WSError> {
-        let mut sections = Module::stream(reader)?;
-
-        let signature_header = match sections.next().ok_or(WSError::ParseError)?? {
+        let signature_header = match Module::stream(reader)?
+            .next()
+            .ok_or(WSError::ParseError)??
+        {
             Section::Custom(custom_section) if custom_section.is_signature_header() => {
                 custom_section
             }
@@ -277,10 +278,10 @@ impl PublicKey {
             return Err(WSError::VerificationFailed);
         }
 
+        let mut remaining_bytes = Vec::new();
+        reader.read_to_end(&mut remaining_bytes)?;
         let mut hasher = Hash::new();
-        for section in sections {
-            hasher.update(section?.payload());
-        }
+        hasher.update(remaining_bytes);
 
         let h = hasher.finalize().to_vec();
         if valid_hashes.contains(&h) {
@@ -349,7 +350,7 @@ impl PublicKey {
         for (idx, section) in sections {
             let section = section?;
             let section_must_be_signed = predicate(&section);
-            hasher.update(section.payload());
+            hasher.update(section.serialize_vec()?);
             if section.is_signature_delimiter() {
                 let h = hasher.finalize().to_vec();
                 debug!("  - [{}]", Hex::encode_to_string(&h).unwrap());
