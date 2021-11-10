@@ -3,6 +3,10 @@ name = "wasmsign2"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "wasmsign2"
+path = "src/cli/main.rs"
+
 [dependencies]
 anyhow = "1.0.45"
 clap = { version = "2.33.3", default-features = false, features = ["wrap_help"] }
