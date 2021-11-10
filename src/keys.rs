@@ -63,11 +63,19 @@ impl PublicKey {
         fp.write_all(&self.to_bytes())?;
         Ok(())
     }
+
+    pub fn key_id(&self) -> &Option<Vec<u8>> {
+        &self.key_id
+    }
+
+    pub fn attach_default_key_id(mut self) -> Self {
+        self.key_id = Some(hmac_sha256::HMAC::mac(b"key_id", self.pk.as_ref())[0..12].to_vec());
+        self
+    }
 }
 
 pub struct SecretKey {
     pub sk: ed25519_compact::SecretKey,
-    pub key_id: Option<Vec<u8>>,
 }
 
 impl SecretKey {
@@ -82,18 +90,17 @@ impl SecretKey {
         reader.read_to_end(&mut bytes)?;
         Ok(Self {
             sk: ed25519_compact::SecretKey::from_slice(&bytes)?,
-            key_id: None,
         })
     }
 
     pub fn from_pem(pem: &str) -> Result<Self, WSError> {
         let sk = ed25519_compact::SecretKey::from_pem(pem)?;
-        Ok(Self { sk, key_id: None })
+        Ok(Self { sk })
     }
 
     pub fn from_der(der: &[u8]) -> Result<Self, WSError> {
         let sk = ed25519_compact::SecretKey::from_der(der)?;
-        Ok(Self { sk, key_id: None })
+        Ok(Self { sk })
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -137,10 +144,7 @@ impl KeyPair {
                 pk: kp.pk,
                 key_id: None,
             },
-            sk: SecretKey {
-                sk: kp.sk,
-                key_id: None,
-            },
+            sk: SecretKey { sk: kp.sk },
         }
     }
 }

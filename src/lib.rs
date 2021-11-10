@@ -33,6 +33,7 @@ pub fn show(file: &str, verbose: bool) -> Result<(), WSError> {
 fn build_header_section(
     previous_signature_data: Option<SignatureData>,
     sk: &SecretKey,
+    key_id: &Option<Vec<u8>>,
     hashes: Vec<Vec<u8>>,
 ) -> Result<Section, WSError> {
     let mut msg: Vec<u8> = vec![];
@@ -57,7 +58,7 @@ fn build_header_section(
     debug!("    = {}\n\n", Hex::encode_to_string(&signature).unwrap());
 
     let signature_for_hashes = SignatureForHashes {
-        key_id: sk.key_id.clone(),
+        key_id: key_id.clone(),
         signature,
     };
     let mut signed_hashes_set = match &previous_signature_data {
@@ -146,6 +147,7 @@ where
 
 pub fn sign(
     sk: &SecretKey,
+    pk: Option<&PublicKey>,
     mut module: Module,
     detached: bool,
 ) -> Result<(Module, Vec<u8>), WSError> {
@@ -187,7 +189,11 @@ pub fn sign(
     if !last_section_was_a_signature {
         hashes.push(hasher.finalize().to_vec());
     }
-    let header_section = build_header_section(previous_signature_data, sk, hashes)?;
+    let key_id = match pk {
+        None => &None,
+        Some(pk) => pk.key_id(),
+    };
+    let header_section = build_header_section(previous_signature_data, sk, key_id, hashes)?;
     if detached {
         Ok((module, header_section.payload().to_vec()))
     } else {
