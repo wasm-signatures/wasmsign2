@@ -16,7 +16,6 @@ use ct_codecs::{Encoder, Hex};
 use hmac_sha256::Hash;
 use log::*;
 use std::collections::HashSet;
-use std::ops::RangeInclusive;
 use std::str;
 
 const SIGNATURE_DOMAIN: &str = "wasmsig";
@@ -194,11 +193,15 @@ pub fn sign(
     }
 }
 
-pub fn verify(
+pub fn verify<P>(
     pk: &PublicKey,
     module: &Module,
     detached_signature: Option<&[u8]>,
-) -> Result<Vec<RangeInclusive<usize>>, WSError> {
+    mut predicate: P,
+) -> Result<(), WSError>
+where
+    P: FnMut(&Section) -> bool,
+{
     let sections_len = module.sections.len();
     let mut sections = module.sections.iter().enumerate();
     let signature_header: &Section;
@@ -276,21 +279,37 @@ pub fn verify(
     let mut hasher = Hash::new();
     let mut matching_section_ranges = vec![];
     debug!("Computed hashes:");
+    let mut part_must_be_signed: Option<bool> = None;
     for (idx, section) in sections {
+        let section_must_be_signed = predicate(section);
         hasher.update(section.payload());
         match section {
             Section::Custom(custom_section) if custom_section.is_signature_delimiter() => {
                 let h = hasher.finalize().to_vec();
                 debug!("  - [{}]", Hex::encode_to_string(&h).unwrap());
+                if part_must_be_signed == Some(false) {
+                    continue;
+                }
                 if !valid_hashes.contains(&h) {
                     return Err(WSError::VerificationFailed);
                 }
                 matching_section_ranges.push(0..=idx);
                 hasher = Hash::new();
+                part_must_be_signed = None;
             }
             _ => {
                 if idx + 1 == sections_len && detached_signature.is_none() {
                     return Err(WSError::VerificationFailed);
+                }
+                match part_must_be_signed {
+                    None => part_must_be_signed = Some(section_must_be_signed),
+                    Some(false) if section_must_be_signed => {
+                        return Err(WSError::VerificationFailed);
+                    }
+                    Some(true) if !section_must_be_signed => {
+                        return Err(WSError::VerificationFailed);
+                    }
+                    _ => {}
                 }
             }
         }
@@ -299,5 +318,5 @@ pub fn verify(
     for range in &matching_section_ranges {
         debug!("  - {}...{}", range.start(), range.end());
     }
-    Ok(matching_section_ranges)
+    Ok(())
 }

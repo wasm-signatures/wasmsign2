@@ -144,14 +144,24 @@ fn main() -> Result<(), WSError> {
         let pk = PublicKey::from_file(pk_file)?;
         let input_file = input_file.expect("Missing input file");
         let module = Module::deserialize_from_file(input_file)?;
-        let _ = match signature_file {
-            None => verify(&pk, &module, None)?,
+        let mut detached_signatures_ = vec![];
+        let detached_signatures = match signature_file {
+            None => None,
             Some(signature_file) => {
-                let mut detached_signatures = vec![];
-                File::open(signature_file)?.read_to_end(&mut detached_signatures)?;
-                verify(&pk, &module, Some(&detached_signatures))?
+                File::open(signature_file)?.read_to_end(&mut detached_signatures_)?;
+                Some(detached_signatures_.as_slice())
             }
         };
+        verify(&pk, &module, detached_signatures, |section| match section {
+            Section::Standard(_) => true,
+            Section::Custom(custom_section) => {
+                if let Some(signed_sections_rx) = &signed_sections_rx {
+                    signed_sections_rx.is_match(custom_section.name().as_bytes())
+                } else {
+                    true
+                }
+            }
+        })?;
     }
     Ok(())
 }

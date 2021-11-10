@@ -35,4 +35,7 @@ pub enum WSError {
 
     #[error("Duplicate signature")]
     DuplicateSignature,
+
+    #[error("Sections can only be verified between pre-defined boundaries")]
+    InvalidVerificationPredicate,
 }
