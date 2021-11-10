@@ -115,31 +115,30 @@ where
 {
     let mut out_sections = vec![];
     let mut flip = false;
+    let mut last_was_delimiter = false;
     for (idx, section) in module.sections.into_iter().enumerate() {
-        if let Section::Custom(custom_section) = &section {
-            if custom_section.is_signature_delimiter() {
-                out_sections.push(section);
-                continue;
-            }
+        if section.is_signature_delimiter() {
+            out_sections.push(section);
+            last_was_delimiter = true;
+            continue;
         }
         let section_can_be_signed = predicate(&section);
         if idx == 0 {
             flip = !section_can_be_signed;
         } else if section_can_be_signed == flip {
-            let delimiter = new_delimiter_section()?;
-            out_sections.push(delimiter);
+            if !last_was_delimiter {
+                let delimiter = new_delimiter_section()?;
+                out_sections.push(delimiter);
+            }
             flip = !flip;
         }
         out_sections.push(section);
+        last_was_delimiter = false;
     }
     if let Some(last_section) = out_sections.last() {
-        if let Section::Custom(custom_section) = last_section {
-            if !custom_section.is_signature_delimiter() {
-                {
-                    let delimiter = new_delimiter_section()?;
-                    out_sections.push(delimiter);
-                }
-            }
+        if !last_section.is_signature_delimiter() {
+            let delimiter = new_delimiter_section()?;
+            out_sections.push(delimiter);
         }
     }
     Ok(Module {

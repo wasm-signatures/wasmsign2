@@ -289,6 +289,20 @@ impl Section {
         writer.write_all(payload)?;
         Ok(())
     }
+
+    pub fn is_signature_delimiter(&self) -> bool {
+        match self {
+            Section::Standard(_) => false,
+            Section::Custom(s) => s.is_signature_delimiter(),
+        }
+    }
+
+    pub fn is_signature_header(&self) -> bool {
+        match self {
+            Section::Standard(_) => false,
+            Section::Custom(s) => s.is_signature_header(),
+        }
+    }
 }
 
 impl CustomSection {

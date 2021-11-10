@@ -139,19 +139,7 @@ fn main() -> Result<(), WSError> {
         };
         let output_file = output_file.expect("Missing output file");
         let input_file = input_file.expect("Missing input file");
-        let mut module = Module::deserialize_from_file(input_file)?;
-        if signature_file.is_none() || (signature_file.is_some() && signed_sections_rx.is_some()) {
-            module = split(module, |section| match section {
-                Section::Standard(_) => true,
-                Section::Custom(custom_section) => {
-                    if let Some(signed_sections_rx) = &signed_sections_rx {
-                        signed_sections_rx.is_match(custom_section.name().as_bytes())
-                    } else {
-                        true
-                    }
-                }
-            })?;
-        }
+        let module = Module::deserialize_from_file(input_file)?;
         let (module, signature) = sign(&sk, pk.as_ref(), module, signature_file.is_some())?;
         if let Some(signature_file) = signature_file {
             module.serialize_to_file(output_file)?;
