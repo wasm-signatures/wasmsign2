@@ -8,6 +8,7 @@ const ED25519_SK_ID: u8 = 0x81;
 
 pub struct PublicKey {
     pub pk: ed25519_compact::PublicKey,
+    pub key_id: Option<Vec<u8>>,
 }
 
 impl PublicKey {
@@ -22,17 +23,18 @@ impl PublicKey {
         reader.read_to_end(&mut bytes)?;
         Ok(Self {
             pk: ed25519_compact::PublicKey::from_slice(&bytes)?,
+            key_id: None,
         })
     }
 
     pub fn from_pem(pem: &str) -> Result<Self, WSError> {
         let pk = ed25519_compact::PublicKey::from_pem(pem)?;
-        Ok(Self { pk })
+        Ok(Self { pk, key_id: None })
     }
 
     pub fn from_der(der: &[u8]) -> Result<Self, WSError> {
         let pk = ed25519_compact::PublicKey::from_der(der)?;
-        Ok(Self { pk })
+        Ok(Self { pk, key_id: None })
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -65,6 +67,7 @@ impl PublicKey {
 
 pub struct SecretKey {
     pub sk: ed25519_compact::SecretKey,
+    pub key_id: Option<Vec<u8>>,
 }
 
 impl SecretKey {
@@ -79,17 +82,18 @@ impl SecretKey {
         reader.read_to_end(&mut bytes)?;
         Ok(Self {
             sk: ed25519_compact::SecretKey::from_slice(&bytes)?,
+            key_id: None,
         })
     }
 
     pub fn from_pem(pem: &str) -> Result<Self, WSError> {
         let sk = ed25519_compact::SecretKey::from_pem(pem)?;
-        Ok(Self { sk })
+        Ok(Self { sk, key_id: None })
     }
 
     pub fn from_der(der: &[u8]) -> Result<Self, WSError> {
         let sk = ed25519_compact::SecretKey::from_der(der)?;
-        Ok(Self { sk })
+        Ok(Self { sk, key_id: None })
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -129,8 +133,14 @@ impl KeyPair {
     pub fn generate() -> Self {
         let kp = ed25519_compact::KeyPair::from_seed(ed25519_compact::Seed::generate());
         KeyPair {
-            pk: PublicKey { pk: kp.pk },
-            sk: SecretKey { sk: kp.sk },
+            pk: PublicKey {
+                pk: kp.pk,
+                key_id: None,
+            },
+            sk: SecretKey {
+                sk: kp.sk,
+                key_id: None,
+            },
         }
     }
 }

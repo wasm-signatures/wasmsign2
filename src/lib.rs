@@ -57,7 +57,7 @@ fn build_header_section(
     debug!("    = {}\n\n", Hex::encode_to_string(&signature).unwrap());
 
     let signature_for_hashes = SignatureForHashes {
-        key_id: None,
+        key_id: sk.key_id.clone(),
         signature,
     };
     let mut signed_hashes_set = match &previous_signature_data {
@@ -254,6 +254,12 @@ where
             msg.extend_from_slice(hash);
         }
         for signature in &signed_part.signatures {
+            match (&signature.key_id, &pk.key_id) {
+                (Some(signature_key_id), Some(pk_key_id)) if signature_key_id != pk_key_id => {
+                    continue;
+                }
+                _ => {}
+            }
             if pk
                 .pk
                 .verify(
