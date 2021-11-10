@@ -6,7 +6,7 @@ extern crate clap;
 use clap::Arg;
 use regex_automata::RegexBuilder;
 use std::fs::File;
-use std::io::prelude::*;
+use std::io::{prelude::*, BufReader};
 
 fn main() -> Result<(), WSError> {
     env_logger::builder()
@@ -162,7 +162,6 @@ fn main() -> Result<(), WSError> {
             let pk_file = matches.value_of("public_key").expect("Missing public key");
             let pk = PublicKey::from_file(pk_file)?.attach_default_key_id();
             let input_file = input_file.expect("Missing input file");
-            let module = Module::deserialize_from_file(input_file)?;
             let mut detached_signatures_ = vec![];
             let detached_signatures = match signature_file {
                 None => None,
@@ -172,6 +171,7 @@ fn main() -> Result<(), WSError> {
                 }
             };
             if let Some(signed_sections_rx) = &signed_sections_rx {
+                let module = Module::deserialize_from_file(input_file)?;
                 pk.verify_multi(&module, detached_signatures, |section| match section {
                     Section::Standard(_) => true,
                     Section::Custom(custom_section) => {
@@ -179,7 +179,8 @@ fn main() -> Result<(), WSError> {
                     }
                 })?;
             } else {
-                pk.verify(&module)?;
+                let mut reader = BufReader::new(File::open(input_file)?);
+                pk.verify(&mut reader)?;
             }
         }
         _ => {

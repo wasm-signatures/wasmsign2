@@ -16,6 +16,7 @@ use ct_codecs::{Encoder, Hex};
 use hmac_sha256::Hash;
 use log::*;
 use std::collections::HashSet;
+use std::io::Read;
 use std::str;
 
 const SIGNATURE_DOMAIN: &str = "wasmsig";
@@ -249,10 +250,10 @@ impl SecretKey {
 }
 
 impl PublicKey {
-    pub fn verify(&self, module: &Module) -> Result<(), WSError> {
-        let mut sections = module.sections.iter();
+    pub fn verify(&self, reader: &mut impl Read) -> Result<(), WSError> {
+        let mut it = Module::stream(reader)?;
 
-        let signature_header = match sections.next().ok_or(WSError::ParseError)? {
+        let signature_header = match it.next().ok_or(WSError::ParseError)?? {
             Section::Custom(custom_section) if custom_section.is_signature_header() => {
                 custom_section
             }
@@ -277,8 +278,8 @@ impl PublicKey {
         }
 
         let mut hasher = Hash::new();
-        for section in sections {
-            hasher.update(section.payload());
+        for section in it {
+            hasher.update(section?.payload());
         }
 
         let h = hasher.finalize().to_vec();
