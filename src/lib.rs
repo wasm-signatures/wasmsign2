@@ -251,9 +251,9 @@ impl SecretKey {
 
 impl PublicKey {
     pub fn verify(&self, reader: &mut impl Read) -> Result<(), WSError> {
-        let mut it = Module::stream(reader)?;
+        let mut sections = Module::stream(reader)?;
 
-        let signature_header = match it.next().ok_or(WSError::ParseError)?? {
+        let signature_header = match sections.next().ok_or(WSError::ParseError)?? {
             Section::Custom(custom_section) if custom_section.is_signature_header() => {
                 custom_section
             }
@@ -278,7 +278,7 @@ impl PublicKey {
         }
 
         let mut hasher = Hash::new();
-        for section in it {
+        for section in sections {
             hasher.update(section?.payload());
         }
 
@@ -294,16 +294,17 @@ impl PublicKey {
 
     pub fn verify_multi<P>(
         &self,
-        module: &Module,
+        reader: &mut impl Read,
         detached_signature: Option<&[u8]>,
         mut predicate: P,
     ) -> Result<(), WSError>
     where
         P: FnMut(&Section) -> bool,
     {
-        let mut sections = module.sections.iter().enumerate();
+        let mut sections = Module::stream(reader)?.enumerate();
         let signature_header: &Section;
         let signature_header_from_detached_signature;
+        let signature_header_from_stream;
         if let Some(detached_signature) = &detached_signature {
             signature_header_from_detached_signature = Section::Custom(CustomSection::new(
                 SIGNATURE_SECTION_HEADER_NAME.to_string(),
@@ -311,7 +312,8 @@ impl PublicKey {
             ));
             signature_header = &signature_header_from_detached_signature;
         } else {
-            signature_header = sections.next().ok_or(WSError::ParseError)?.1;
+            signature_header_from_stream = sections.next().ok_or(WSError::ParseError)?.1?;
+            signature_header = &signature_header_from_stream;
         }
         let signature_header = match signature_header {
             Section::Custom(custom_section) if custom_section.is_signature_header() => {
@@ -345,7 +347,8 @@ impl PublicKey {
         debug!("Computed hashes:");
         let mut part_must_be_signed: Option<bool> = None;
         for (idx, section) in sections {
-            let section_must_be_signed = predicate(section);
+            let section = section?;
+            let section_must_be_signed = predicate(&section);
             hasher.update(section.payload());
             if section.is_signature_delimiter() {
                 let h = hasher.finalize().to_vec();

@@ -170,16 +170,15 @@ fn main() -> Result<(), WSError> {
                     Some(detached_signatures_.as_slice())
                 }
             };
+            let mut reader = BufReader::new(File::open(input_file)?);
             if let Some(signed_sections_rx) = &signed_sections_rx {
-                let module = Module::deserialize_from_file(input_file)?;
-                pk.verify_multi(&module, detached_signatures, |section| match section {
+                pk.verify_multi(&mut reader, detached_signatures, |section| match section {
                     Section::Standard(_) => true,
                     Section::Custom(custom_section) => {
                         signed_sections_rx.is_match(custom_section.name().as_bytes())
                     }
                 })?;
             } else {
-                let mut reader = BufReader::new(File::open(input_file)?);
                 pk.verify(&mut reader)?;
             }
         }
