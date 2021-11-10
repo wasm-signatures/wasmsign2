@@ -158,6 +158,7 @@ pub fn sign(
     let mut out_sections = vec![];
     let header_section = Section::Custom(CustomSection::default());
     if !detached {
+        module = split(module, |_| true)?;
         out_sections.push(header_section);
     }
     let mut previous_signature_data = None;
@@ -247,6 +248,52 @@ fn valid_hashes_for_pk<'t>(
     Ok(valid_hashes)
 }
 
+pub fn verify_all(pk: &PublicKey, module: &Module) -> Result<(), WSError> {
+    let mut sections = module.sections.iter();
+
+    let signature_header = match sections.next().ok_or(WSError::ParseError)? {
+        Section::Custom(custom_section) if custom_section.is_signature_header() => custom_section,
+        _ => {
+            debug!("This module is not signed");
+            return Err(WSError::NoSignatures);
+        }
+    };
+    let signature_data = signature_header.signature_data()?;
+    if signature_data.hash_function != SIGNATURE_HASH_FUNCTION {
+        debug!(
+            "Unsupported hash function: {:02x}",
+            signature_data.specification_version
+        );
+        return Err(WSError::ParseError);
+    }
+    let signed_hashes_set = signature_data.signed_hashes_set;
+    let valid_hashes = valid_hashes_for_pk(&signed_hashes_set, pk)?;
+    if valid_hashes.is_empty() {
+        debug!("No valid signatures");
+        return Err(WSError::VerificationFailed);
+    }
+
+    let mut hasher = Hash::new();
+    let mut last_section_is_a_delimiter = false;
+    for section in sections {
+        hasher.update(section.payload());
+        last_section_is_a_delimiter = section.is_signature_delimiter();
+    }
+    if !last_section_is_a_delimiter {
+        debug!("The last section is not a delimiter");
+        return Err(WSError::VerificationFailed);
+    }
+
+    let h = hasher.finalize().to_vec();
+    if valid_hashes.contains(&h) {
+        debug!("Signature is valid");
+        Ok(())
+    } else {
+        debug!("Signature is invalid");
+        Err(WSError::VerificationFailed)
+    }
+}
+
 pub fn verify<P>(
     pk: &PublicKey,
     module: &Module,
@@ -256,7 +303,6 @@ pub fn verify<P>(
 where
     P: FnMut(&Section) -> bool,
 {
-    let sections_len = module.sections.len();
     let mut sections = module.sections.iter().enumerate();
     let signature_header: &Section;
     let signature_header_from_detached_signature;
@@ -298,39 +344,40 @@ where
     let mut matching_section_ranges = vec![];
     debug!("Computed hashes:");
     let mut part_must_be_signed: Option<bool> = None;
+    let mut last_section_is_a_delimiter = false;
     for (idx, section) in sections {
         let section_must_be_signed = predicate(section);
         hasher.update(section.payload());
-        match section {
-            Section::Custom(custom_section) if custom_section.is_signature_delimiter() => {
-                let h = hasher.finalize().to_vec();
-                debug!("  - [{}]", Hex::encode_to_string(&h).unwrap());
-                if part_must_be_signed == Some(false) {
-                    continue;
-                }
-                if !valid_hashes.contains(&h) {
-                    return Err(WSError::VerificationFailed);
-                }
-                matching_section_ranges.push(0..=idx);
-                hasher = Hash::new();
-                part_must_be_signed = None;
+        if section.is_signature_delimiter() {
+            last_section_is_a_delimiter = true;
+            let h = hasher.finalize().to_vec();
+            debug!("  - [{}]", Hex::encode_to_string(&h).unwrap());
+            if part_must_be_signed == Some(false) {
+                continue;
             }
-            _ => {
-                if idx + 1 == sections_len && detached_signature.is_none() {
+            if !valid_hashes.contains(&h) {
+                return Err(WSError::VerificationFailed);
+            }
+            matching_section_ranges.push(0..=idx);
+            hasher = Hash::new();
+            part_must_be_signed = None;
+        } else {
+            last_section_is_a_delimiter = false;
+            match part_must_be_signed {
+                None => part_must_be_signed = Some(section_must_be_signed),
+                Some(false) if section_must_be_signed => {
                     return Err(WSError::VerificationFailed);
                 }
-                match part_must_be_signed {
-                    None => part_must_be_signed = Some(section_must_be_signed),
-                    Some(false) if section_must_be_signed => {
-                        return Err(WSError::VerificationFailed);
-                    }
-                    Some(true) if !section_must_be_signed => {
-                        return Err(WSError::VerificationFailed);
-                    }
-                    _ => {}
+                Some(true) if !section_must_be_signed => {
+                    return Err(WSError::VerificationFailed);
                 }
+                _ => {}
             }
         }
+    }
+    if !last_section_is_a_delimiter {
+        debug!("The last section is not a delimiter");
+        return Err(WSError::VerificationFailed);
     }
     debug!("Valid, signed ranges:");
     for range in &matching_section_ranges {

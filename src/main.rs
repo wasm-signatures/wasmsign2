@@ -162,16 +162,16 @@ fn main() -> Result<(), WSError> {
                 Some(detached_signatures_.as_slice())
             }
         };
-        verify(&pk, &module, detached_signatures, |section| match section {
-            Section::Standard(_) => true,
-            Section::Custom(custom_section) => {
-                if let Some(signed_sections_rx) = &signed_sections_rx {
+        if let Some(signed_sections_rx) = &signed_sections_rx {
+            verify(&pk, &module, detached_signatures, |section| match section {
+                Section::Standard(_) => true,
+                Section::Custom(custom_section) => {
                     signed_sections_rx.is_match(custom_section.name().as_bytes())
-                } else {
-                    true
                 }
-            }
-        })?;
+            })?;
+        } else {
+            verify_all(&pk, &module)?;
+        }
     }
     Ok(())
 }
