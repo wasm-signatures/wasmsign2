@@ -22,7 +22,7 @@ const SIGNATURE_DOMAIN: &str = "wasmsig";
 const SIGNATURE_VERSION: u8 = 0x01;
 const SIGNATURE_HASH_FUNCTION: u8 = 0x01;
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 struct Hash {
     hash: hmac_sha256::Hash,
 }
