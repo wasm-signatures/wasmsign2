@@ -64,8 +64,8 @@ impl PublicKey {
         Ok(())
     }
 
-    pub fn key_id(&self) -> &Option<Vec<u8>> {
-        &self.key_id
+    pub fn key_id(&self) -> Option<&Vec<u8>> {
+        self.key_id.as_ref()
     }
 
     pub fn attach_default_key_id(mut self) -> Self {

@@ -138,15 +138,17 @@ fn main() -> Result<(), WSError> {
                 panic!("Secret key file is required");
             };
             let pk_file = matches.value_of("public_key");
-            let pk = if let Some(pk_file) = pk_file {
-                Some(PublicKey::from_file(pk_file)?.attach_default_key_id())
+            let key_id = if let Some(pk_file) = pk_file {
+                let pk = PublicKey::from_file(pk_file)?.attach_default_key_id();
+                pk.key_id().cloned()
             } else {
                 None
             };
             let output_file = output_file.expect("Missing output file");
             let input_file = input_file.expect("Missing input file");
             let module = Module::deserialize_from_file(input_file)?;
-            let (module, signature) = module.sign(&sk, pk.as_ref(), signature_file.is_some())?;
+            let (module, signature) =
+                sk.sign_multi(module, key_id.as_ref(), signature_file.is_some())?;
             if let Some(signature_file) = signature_file {
                 module.serialize_to_file(output_file)?;
                 File::create(signature_file)?.write_all(&signature)?;
@@ -170,14 +172,14 @@ fn main() -> Result<(), WSError> {
                 }
             };
             if let Some(signed_sections_rx) = &signed_sections_rx {
-                module.verify(&pk, detached_signatures, |section| match section {
+                pk.verify_multi(&module, detached_signatures, |section| match section {
                     Section::Standard(_) => true,
                     Section::Custom(custom_section) => {
                         signed_sections_rx.is_match(custom_section.name().as_bytes())
                     }
                 })?;
             } else {
-                module.verify_all(&pk)?;
+                pk.verify(&module)?;
             }
         }
         _ => {
