@@ -134,6 +134,7 @@ impl SecretKey {
         let mut msg: Vec<u8> = vec![];
         msg.extend_from_slice(SIGNATURE_DOMAIN.as_bytes());
         msg.extend_from_slice(&[SIGNATURE_VERSION, SIGNATURE_HASH_FUNCTION]);
+        msg.extend_from_slice(&h);
 
         let signature = self.sk.sign(msg, None).to_vec();
 
