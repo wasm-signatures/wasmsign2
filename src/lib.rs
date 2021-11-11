@@ -195,8 +195,7 @@ impl SecretKey {
                 if custom_section.is_signature_delimiter() {
                     section.serialize(&mut hasher)?;
                     out_sections.push(section.clone());
-                    hashes.push(hasher.finalize().to_vec());
-                    hasher = Hash::new();
+                    hashes.push(hasher.clone().finalize().to_vec());
                     last_section_was_a_signature = true;
                     continue;
                 }
@@ -410,14 +409,13 @@ impl PublicKey {
                 if part_must_be_signed == Some(false) {
                     continue;
                 }
-                let h = hasher.finalize().to_vec();
+                let h = hasher.clone().finalize().to_vec();
                 debug!("  - [{}]", Hex::encode_to_string(&h).unwrap());
                 if !valid_hashes.contains(&h) {
                     return Err(WSError::VerificationFailed);
                 }
                 matching_section_ranges.push(0..=idx);
                 part_must_be_signed = None;
-                hasher = Hash::new();
             } else {
                 let section_must_be_signed = predicate(&section);
                 match part_must_be_signed {
@@ -551,7 +549,7 @@ impl PublicKeySet {
             let section = section?;
             section.serialize(&mut hasher)?;
             if section.is_signature_delimiter() {
-                let h = hasher.finalize().to_vec();
+                let h = hasher.clone().finalize().to_vec();
                 for (pk, part_must_be_signed) in part_must_be_signed_for_pks.iter_mut() {
                     if let Some(false) = part_must_be_signed {
                         continue;
@@ -565,7 +563,6 @@ impl PublicKeySet {
                     }
                     *part_must_be_signed = None;
                 }
-                hasher = Hash::new();
             } else {
                 for (idx, predicate) in predicates.iter().enumerate() {
                     let section_must_be_signed = predicate(&section);
