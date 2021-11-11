@@ -195,7 +195,7 @@ impl SecretKey {
                 if custom_section.is_signature_delimiter() {
                     section.serialize(&mut hasher)?;
                     out_sections.push(section.clone());
-                    hashes.push(hasher.clone().finalize().to_vec());
+                    hashes.push(hasher.finalize().to_vec());
                     last_section_was_a_signature = true;
                     continue;
                 }
@@ -409,7 +409,7 @@ impl PublicKey {
                 if part_must_be_signed == Some(false) {
                     continue;
                 }
-                let h = hasher.clone().finalize().to_vec();
+                let h = hasher.finalize().to_vec();
                 debug!("  - [{}]", Hex::encode_to_string(&h).unwrap());
                 if !valid_hashes.contains(&h) {
                     return Err(WSError::VerificationFailed);
@@ -549,7 +549,7 @@ impl PublicKeySet {
             let section = section?;
             section.serialize(&mut hasher)?;
             if section.is_signature_delimiter() {
-                let h = hasher.clone().finalize().to_vec();
+                let h = hasher.finalize().to_vec();
                 for (pk, part_must_be_signed) in part_must_be_signed_for_pks.iter_mut() {
                     if let Some(false) = part_must_be_signed {
                         continue;
