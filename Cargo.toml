@@ -16,6 +16,6 @@ env_logger = { version = "0.9.0", default-features = false, features = ["humanti
 getrandom = "0.2.3"
 hmac-sha256 = "1.0.0"
 log = "0.4.14"
-regex-automata = "0.1.10"
+regex = "1.5.4"
 serde = { version = "1.0.130", features = ["derive"] }
 thiserror = "1.0.30"

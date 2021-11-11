@@ -4,7 +4,7 @@ use wasmsign2::{KeyPair, Module, PublicKey, SecretKey, Section, WSError};
 extern crate clap;
 
 use clap::Arg;
-use regex_automata::RegexBuilder;
+use regex::RegexBuilder;
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
 
@@ -88,11 +88,14 @@ fn main() -> Result<(), WSError> {
     let signed_sections_rx = match splits {
         None => None,
         Some(splits) => Some(
-            RegexBuilder::new()
-                .unicode(true)
-                .anchored(true)
+            RegexBuilder::new(splits)
+                .case_insensitive(false)
+                .multi_line(false)
                 .dot_matches_new_line(false)
-                .build(splits)
+                .size_limit(1_000_000)
+                .dfa_size_limit(1_000_000)
+                .nest_limit(1000)
+                .build()
                 .map_err(|_| WSError::InvalidArgument)?,
         ),
     };
@@ -121,7 +124,7 @@ fn main() -> Result<(), WSError> {
                 Section::Standard(_) => true,
                 Section::Custom(custom_section) => {
                     if let Some(signed_sections_rx) = &signed_sections_rx {
-                        signed_sections_rx.is_match(custom_section.name().as_bytes())
+                        signed_sections_rx.is_match(custom_section.name())
                     } else {
                         true
                     }
@@ -175,7 +178,7 @@ fn main() -> Result<(), WSError> {
                 pk.verify_multi(&mut reader, detached_signatures, |section| match section {
                     Section::Standard(_) => true,
                     Section::Custom(custom_section) => {
-                        signed_sections_rx.is_match(custom_section.name().as_bytes())
+                        signed_sections_rx.is_match(custom_section.name())
                     }
                 })?;
             } else {
