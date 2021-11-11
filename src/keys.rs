@@ -1,13 +1,15 @@
 pub use crate::error::*;
 
+use ct_codecs::{Encoder, Hex};
 use std::collections::HashSet;
+use std::fmt;
 use std::fs::File;
 use std::io::{self, prelude::*};
 
 const ED25519_PK_ID: u8 = 0x01;
 const ED25519_SK_ID: u8 = 0x81;
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct PublicKey {
     pub pk: ed25519_compact::PublicKey,
     pub key_id: Option<Vec<u8>>,
@@ -78,7 +80,19 @@ impl PublicKey {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+impl fmt::Debug for PublicKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "PublicKey {{ [{}] - key_id: {:?} }}",
+            Hex::encode_to_string(self.pk.as_ref()).unwrap(),
+            self.key_id()
+                .map(|key_id| format!("[{}]", Hex::encode_to_string(key_id).unwrap()))
+        )
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct SecretKey {
     pub sk: ed25519_compact::SecretKey,
 }
@@ -136,6 +150,17 @@ impl SecretKey {
     }
 }
 
+impl fmt::Debug for SecretKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "SecretKey {{ [{}] }}",
+            Hex::encode_to_string(self.sk.as_ref()).unwrap(),
+        )
+    }
+}
+
+#[derive(Clone, Eq, PartialEq, Hash, Debug)]
 pub struct KeyPair {
     pub pk: PublicKey,
     pub sk: SecretKey,

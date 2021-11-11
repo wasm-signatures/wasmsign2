@@ -1,4 +1,6 @@
-use wasmsign2::{KeyPair, Module, PublicKey, SecretKey, Section, WSError};
+use wasmsign2::{
+    BoxedPredicate, KeyPair, Module, PublicKey, PublicKeySet, SecretKey, Section, WSError,
+};
 
 #[macro_use]
 extern crate clap;
@@ -203,6 +205,49 @@ fn main() -> Result<(), WSError> {
             let mut module = Module::deserialize_from_file(input_file)?;
             module = module.attach_signature(&detached_signature)?;
             module.serialize_to_file(output_file)?;
+        }
+        "verify_matrix" => {
+            let mut pks = std::collections::HashSet::new();
+            for pk_file in matches
+                .value_of("public_key")
+                .expect("Missing public keys")
+                .split(',')
+            {
+                let pk = PublicKey::from_file(pk_file)?;
+                pks.insert(pk);
+            }
+            let pks = PublicKeySet::new(pks);
+            let input_file = input_file.expect("Missing input file");
+            let mut detached_signatures_ = vec![];
+            let detached_signatures = match signature_file {
+                None => None,
+                Some(signature_file) => {
+                    File::open(signature_file)?.read_to_end(&mut detached_signatures_)?;
+                    Some(detached_signatures_.as_slice())
+                }
+            };
+            let mut reader = BufReader::new(File::open(input_file)?);
+            let predicates: Vec<BoxedPredicate> =
+                if let Some(signed_sections_rx) = signed_sections_rx {
+                    vec![Box::new(move |section| match section {
+                        Section::Standard(_) => true,
+                        Section::Custom(custom_section) => {
+                            signed_sections_rx.is_match(custom_section.name())
+                        }
+                    })]
+                } else {
+                    vec![Box::new(|_| true)]
+                };
+            let matrix = pks.verify_matrix(&mut reader, detached_signatures, &predicates)?;
+            let valid_pks = matrix.get(0).expect("No predicates");
+            if valid_pks.is_empty() {
+                println!("No valid public keys found");
+            } else {
+                println!("Valid public keys:");
+                for pk in valid_pks {
+                    println!("  - {:x?}", pk);
+                }
+            }
         }
         _ => {
             panic!("Unknown action");

@@ -44,6 +44,11 @@ impl Module {
         let mut flip = false;
         let mut last_was_delimiter = false;
         for (idx, section) in self.sections.into_iter().enumerate() {
+            if section.is_signature_header() {
+                info!("Module is already signed");
+                out_sections.push(section);
+                continue;
+            }
             if section.is_signature_delimiter() {
                 out_sections.push(section);
                 last_was_delimiter = true;
