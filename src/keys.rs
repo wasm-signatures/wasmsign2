@@ -6,6 +6,7 @@ use std::io::{self, prelude::*};
 const ED25519_PK_ID: u8 = 0x01;
 const ED25519_SK_ID: u8 = 0x81;
 
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct PublicKey {
     pub pk: ed25519_compact::PublicKey,
     pub key_id: Option<Vec<u8>>,
@@ -74,6 +75,7 @@ impl PublicKey {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct SecretKey {
     pub sk: ed25519_compact::SecretKey,
 }
@@ -146,5 +148,16 @@ impl KeyPair {
             },
             sk: SecretKey { sk: kp.sk },
         }
+    }
+}
+
+#[derive(Debug, Clone, Hash)]
+pub struct PublicKeyStore {
+    pub pks: Vec<PublicKey>,
+}
+
+impl PublicKeyStore {
+    pub fn new(pks: Vec<PublicKey>) -> Self {
+        PublicKeyStore { pks }
     }
 }

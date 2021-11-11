@@ -1,5 +1,4 @@
 use log::*;
-use serde::{Deserialize, Serialize};
 use std::io::{prelude::*, BufReader, BufWriter};
 
 use crate::error::*;
@@ -10,19 +9,19 @@ use crate::SIGNATURE_VERSION;
 pub const SIGNATURE_SECTION_HEADER_NAME: &str = "signature";
 pub const SIGNATURE_SECTION_DELIMITER_NAME: &str = "signature_delimiter";
 
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Eq)]
+#[derive(PartialEq, Debug, Clone, Eq)]
 pub struct SignatureForHashes {
     pub key_id: Option<Vec<u8>>,
     pub signature: Vec<u8>,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Eq)]
+#[derive(PartialEq, Debug, Clone, Eq)]
 pub struct SignedHashes {
     pub hashes: Vec<Vec<u8>>,
     pub signatures: Vec<SignatureForHashes>,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug, Clone, Eq)]
+#[derive(PartialEq, Debug, Clone, Eq)]
 pub struct SignatureData {
     pub specification_version: u8,
     pub hash_function: u8,
