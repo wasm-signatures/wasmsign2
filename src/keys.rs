@@ -1,5 +1,6 @@
 pub use crate::error::*;
 
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::{self, prelude::*};
 
@@ -70,7 +71,9 @@ impl PublicKey {
     }
 
     pub fn attach_default_key_id(mut self) -> Self {
-        self.key_id = Some(hmac_sha256::HMAC::mac(b"key_id", self.pk.as_ref())[0..12].to_vec());
+        if self.key_id.is_none() {
+            self.key_id = Some(hmac_sha256::HMAC::mac(b"key_id", self.pk.as_ref())[0..12].to_vec());
+        }
         self
     }
 }
@@ -151,13 +154,22 @@ impl KeyPair {
     }
 }
 
-#[derive(Debug, Clone, Hash)]
-pub struct PublicKeyStore {
-    pub pks: Vec<PublicKey>,
+#[derive(Debug, Clone)]
+pub struct PublicKeySet {
+    pub pks: HashSet<PublicKey>,
 }
 
-impl PublicKeyStore {
-    pub fn new(pks: Vec<PublicKey>) -> Self {
-        PublicKeyStore { pks }
+impl PublicKeySet {
+    pub fn new(pks: HashSet<PublicKey>) -> Self {
+        PublicKeySet { pks }
+    }
+
+    pub fn attach_default_key_id(mut self) -> Self {
+        self.pks = self
+            .pks
+            .into_iter()
+            .map(|pk| pk.attach_default_key_id())
+            .collect();
+        self
     }
 }
