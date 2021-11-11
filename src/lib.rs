@@ -16,7 +16,7 @@ pub use wasm_module::*;
 
 use ct_codecs::{Encoder, Hex};
 use log::*;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::Read;
 use std::str;
 
@@ -316,7 +316,7 @@ impl PublicKey {
             return Err(WSError::ParseError);
         }
         let signed_hashes_set = signature_data.signed_hashes_set;
-        let valid_hashes = Self::valid_hashes_for_pk(&signed_hashes_set, self)?;
+        let valid_hashes = self.valid_hashes_for_pk(&signed_hashes_set)?;
         if valid_hashes.is_empty() {
             debug!("No valid signatures");
             return Err(WSError::VerificationFailed);
@@ -384,7 +384,7 @@ impl PublicKey {
             return Err(WSError::ParseError);
         }
         let signed_hashes_set = signature_data.signed_hashes_set;
-        let valid_hashes = Self::valid_hashes_for_pk(&signed_hashes_set, self)?;
+        let valid_hashes = self.valid_hashes_for_pk(&signed_hashes_set)?;
         if valid_hashes.is_empty() {
             debug!("No valid signatures");
             return Err(WSError::VerificationFailed);
@@ -399,21 +399,21 @@ impl PublicKey {
         let mut part_must_be_signed: Option<bool> = None;
         for (idx, section) in sections {
             let section = section?;
-            let section_must_be_signed = predicate(&section);
             section.serialize(&mut hasher)?;
             if section.is_signature_delimiter() {
-                let h = hasher.finalize().to_vec();
-                debug!("  - [{}]", Hex::encode_to_string(&h).unwrap());
                 if part_must_be_signed == Some(false) {
                     continue;
                 }
+                let h = hasher.finalize().to_vec();
+                debug!("  - [{}]", Hex::encode_to_string(&h).unwrap());
                 if !valid_hashes.contains(&h) {
                     return Err(WSError::VerificationFailed);
                 }
                 matching_section_ranges.push(0..=idx);
-                hasher = Hash::new();
                 part_must_be_signed = None;
+                hasher = Hash::new();
             } else {
+                let section_must_be_signed = predicate(&section);
                 match part_must_be_signed {
                     None => part_must_be_signed = Some(section_must_be_signed),
                     Some(false) if section_must_be_signed => {
@@ -434,8 +434,8 @@ impl PublicKey {
     }
 
     fn valid_hashes_for_pk<'t>(
+        &self,
         signed_hashes_set: &'t [SignedHashes],
-        pk: &PublicKey,
     ) -> Result<HashSet<&'t Vec<u8>>, WSError> {
         let mut valid_hashes = HashSet::new();
         for signed_part in signed_hashes_set {
@@ -447,13 +447,13 @@ impl PublicKey {
                 msg.extend_from_slice(hash);
             }
             for signature in &signed_part.signatures {
-                match (&signature.key_id, &pk.key_id) {
+                match (&signature.key_id, &self.key_id) {
                     (Some(signature_key_id), Some(pk_key_id)) if signature_key_id != pk_key_id => {
                         continue;
                     }
                     _ => {}
                 }
-                if pk
+                if self
                     .pk
                     .verify(
                         &msg,
@@ -465,7 +465,7 @@ impl PublicKey {
                 }
                 debug!(
                     "Hash signature is valid for key [{}]",
-                    Hex::encode_to_string(&*pk.pk).unwrap()
+                    Hex::encode_to_string(&*self.pk).unwrap()
                 );
                 for hash in hashes {
                     valid_hashes.insert(hash);
@@ -473,5 +473,122 @@ impl PublicKey {
             }
         }
         Ok(valid_hashes)
+    }
+}
+
+pub type BoxedPredicate = Box<dyn Fn(&Section) -> bool>;
+
+impl PublicKeySet {
+    pub fn verify_matrix(
+        &self,
+        reader: &mut impl Read,
+        detached_signature: Option<&[u8]>,
+        predicates: &[impl Fn(&Section) -> bool],
+    ) -> Result<Vec<HashSet<PublicKey>>, WSError> {
+        let mut sections = Module::stream(reader)?;
+        let signature_header: &Section;
+        let signature_header_from_detached_signature;
+        let signature_header_from_stream;
+        if let Some(detached_signature) = &detached_signature {
+            signature_header_from_detached_signature = Section::Custom(CustomSection::new(
+                SIGNATURE_SECTION_HEADER_NAME.to_string(),
+                detached_signature.to_vec(),
+            ));
+            signature_header = &signature_header_from_detached_signature;
+        } else {
+            signature_header_from_stream = sections.next().ok_or(WSError::ParseError)??;
+            signature_header = &signature_header_from_stream;
+        }
+        let signature_header = match signature_header {
+            Section::Custom(custom_section) if custom_section.is_signature_header() => {
+                custom_section
+            }
+            _ => {
+                debug!("This module is not signed");
+                return Err(WSError::NoSignatures);
+            }
+        };
+        let signature_data = signature_header.signature_data()?;
+        if signature_data.hash_function != SIGNATURE_HASH_FUNCTION {
+            debug!(
+                "Unsupported hash function: {:02x}",
+                signature_data.specification_version
+            );
+            return Err(WSError::ParseError);
+        }
+        let signed_hashes_set = signature_data.signed_hashes_set;
+
+        let mut valid_hashes_for_pks = HashMap::new();
+        for pk in &self.pks {
+            let valid_hashes = pk.valid_hashes_for_pk(&signed_hashes_set)?;
+            if !valid_hashes.is_empty() {
+                valid_hashes_for_pks.insert(pk.clone(), valid_hashes);
+            }
+        }
+        if valid_hashes_for_pks.is_empty() {
+            debug!("No valid signatures");
+            return Err(WSError::VerificationFailed);
+        }
+
+        let mut part_must_be_signed_for_pks: HashMap<PublicKey, Option<bool>> = HashMap::new();
+        for pk in valid_hashes_for_pks.keys() {
+            part_must_be_signed_for_pks.insert(pk.clone(), None);
+        }
+
+        let mut verify_failures_for_predicates: Vec<HashSet<PublicKey>> = vec![];
+        for _predicate in predicates {
+            verify_failures_for_predicates.push(HashSet::new());
+        }
+
+        let mut hasher = Hash::new();
+        for section in sections {
+            let section = section?;
+            section.serialize(&mut hasher)?;
+            if section.is_signature_delimiter() {
+                let h = hasher.finalize().to_vec();
+                for (pk, part_must_be_signed) in part_must_be_signed_for_pks.iter_mut() {
+                    if let Some(false) = part_must_be_signed {
+                        continue;
+                    }
+                    let valid_hashes = match valid_hashes_for_pks.get(pk) {
+                        None => continue,
+                        Some(valid_hashes) => valid_hashes,
+                    };
+                    if !valid_hashes.contains(&h) {
+                        valid_hashes_for_pks.remove(pk);
+                    }
+                    *part_must_be_signed = None;
+                }
+                hasher = Hash::new();
+            } else {
+                for (idx, predicate) in predicates.iter().enumerate() {
+                    let section_must_be_signed = predicate(&section);
+                    for (pk, part_must_be_signed) in part_must_be_signed_for_pks.iter_mut() {
+                        match part_must_be_signed {
+                            None => *part_must_be_signed = Some(section_must_be_signed),
+                            Some(false) if section_must_be_signed => {
+                                verify_failures_for_predicates[idx].insert(pk.clone());
+                            }
+                            Some(true) if !section_must_be_signed => {
+                                verify_failures_for_predicates[idx].insert(pk.clone());
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+
+        let mut res: Vec<HashSet<PublicKey>> = vec![];
+        for _predicate in predicates {
+            let mut result_for_predicate: HashSet<PublicKey> = HashSet::new();
+            for pk in &self.pks {
+                if !verify_failures_for_predicates[res.len()].contains(pk) {
+                    result_for_predicate.insert(pk.clone());
+                }
+            }
+            res.push(result_for_predicate);
+        }
+        Ok(res)
     }
 }
