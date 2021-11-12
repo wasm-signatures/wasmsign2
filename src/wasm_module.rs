@@ -90,6 +90,7 @@ impl fmt::Display for SectionId {
     }
 }
 
+/// Common functions for a module section.
 pub trait SectionLike {
     fn id(&self) -> SectionId;
     fn payload(&self) -> &[u8];

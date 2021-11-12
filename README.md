@@ -37,7 +37,9 @@ The proposal, and this implementation, support domain-specific features such as:
 
 `wasmsign2` is a Rust crate, that can be used in other applications.
 
-It is also a CLI tool to perform common operations.
+See the [API documentation](https://docs.rs/wasmsign2) for details.
+
+It is also a CLI tool to perform common operations, whose usage is summarized below.
 
 The tool requires the Rust compiler, and can be installed with the following command:
 

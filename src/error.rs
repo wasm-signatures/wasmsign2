@@ -1,4 +1,4 @@
-/// The WasmSign errors type.
+/// The WasmSign2 error type.
 #[derive(Debug, thiserror::Error)]
 pub enum WSError {
     #[error("Internal error: [{0}]")]
