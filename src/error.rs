@@ -1,3 +1,4 @@
+/// The WasmSign errors type.
 #[derive(Debug, thiserror::Error)]
 pub enum WSError {
     #[error("Internal error: [{0}]")]
@@ -41,6 +42,12 @@ pub enum WSError {
 
     #[error("Signature already attached")]
     SignatureAlreadyAttached,
+
+    #[error("Duplicate public key")]
+    DuplicatePublicKey,
+
+    #[error("Unknown public key")]
+    UnknownPublicKey,
 
     #[error("Usage error: {0}")]
     UsageError(&'static str),

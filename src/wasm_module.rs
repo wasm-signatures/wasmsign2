@@ -11,6 +11,7 @@ use std::str;
 
 const WASM_HEADER: [u8; 8] = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
 
+/// A section identifier.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum SectionId {
@@ -95,6 +96,7 @@ pub trait SectionLike {
     fn display(&self, verbose: bool) -> String;
 }
 
+/// A standard section.
 #[derive(Debug, Clone)]
 pub struct StandardSection {
     id: SectionId,
@@ -102,25 +104,30 @@ pub struct StandardSection {
 }
 
 impl StandardSection {
+    /// Create a new standard section.
     pub fn new(id: SectionId, payload: Vec<u8>) -> Self {
         Self { id, payload }
     }
 }
 
 impl SectionLike for StandardSection {
+    /// Return the identifier of the section.
     fn id(&self) -> SectionId {
         self.id
     }
 
+    /// Return the payload of the section.
     fn payload(&self) -> &[u8] {
         &self.payload
     }
 
+    /// Human-readable representation of the section.
     fn display(&self, _verbose: bool) -> String {
         self.id().to_string()
     }
 }
 
+/// A custom section.
 #[derive(Debug, Clone, Default)]
 pub struct CustomSection {
     name: String,
@@ -128,14 +135,19 @@ pub struct CustomSection {
 }
 
 impl CustomSection {
+    /// Create a new custom section.
     pub fn new(name: String, payload: Vec<u8>) -> Self {
         Self { name, payload }
     }
 
+    /// Return the name of the custom section.
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    /// Return the custom section as an array of bytes.
+    ///
+    /// This includes the data itself, but also the size and name of the custom section.
     pub fn outer_payload(&self) -> Result<Vec<u8>, WSError> {
         let mut writer = io::Cursor::new(vec![]);
         varint::put(&mut writer, self.name.len() as _)?;
@@ -215,9 +227,14 @@ impl SectionLike for CustomSection {
     }
 }
 
+/// A WebAssembly module section.
+///
+/// It is recommended to import the `SectionLike` trait for additional functions.
 #[derive(Clone)]
 pub enum Section {
+    /// A standard section.
     Standard(StandardSection),
+    /// A custom section.
     Custom(CustomSection),
 }
 
@@ -245,6 +262,7 @@ impl SectionLike for Section {
 }
 
 impl Section {
+    /// Create a new section with the given identifier and payload.
     pub fn new(id: SectionId, payload: Vec<u8>) -> Result<Self, WSError> {
         match id {
             SectionId::CustomSection => {
@@ -262,6 +280,7 @@ impl Section {
         }
     }
 
+    /// Create a section from its standard serialized representation.
     pub fn deserialize(reader: &mut impl Read) -> Result<Option<Self>, WSError> {
         let id = match varint::get7(reader) {
             Ok(id) => SectionId::from(id),
@@ -275,6 +294,7 @@ impl Section {
         Ok(Some(section))
     }
 
+    /// Serialize a section.
     pub fn serialize(&self, writer: &mut impl Write) -> Result<(), WSError> {
         let outer_payload;
         let payload = match self {
@@ -290,30 +310,36 @@ impl Section {
         Ok(())
     }
 
-    pub fn is_signature_delimiter(&self) -> bool {
-        match self {
-            Section::Standard(_) => false,
-            Section::Custom(s) => s.is_signature_delimiter(),
-        }
-    }
-
+    /// Return `true` if the section contains the module's signatures.
     pub fn is_signature_header(&self) -> bool {
         match self {
             Section::Standard(_) => false,
             Section::Custom(s) => s.is_signature_header(),
         }
     }
+
+    /// Return `true` if the section is a signature delimiter.
+    pub fn is_signature_delimiter(&self) -> bool {
+        match self {
+            Section::Standard(_) => false,
+            Section::Custom(s) => s.is_signature_delimiter(),
+        }
+    }
 }
 
 impl CustomSection {
+    /// Return `true` if the section contains the module's signatures.
     pub fn is_signature_header(&self) -> bool {
         self.name() == SIGNATURE_SECTION_HEADER_NAME
     }
 
+    /// Return `true` if the section is a signature delimiter.
     pub fn is_signature_delimiter(&self) -> bool {
         self.name() == SIGNATURE_SECTION_DELIMITER_NAME
     }
 
+    /// If the section contains the module's signature, deserializes it into a `SignatureData` object
+    /// containing the signatures and the hashes.
     pub fn signature_data(&self) -> Result<SignatureData, WSError> {
         let header_payload =
             SignatureData::deserialize(self.payload()).map_err(|_| WSError::ParseError)?;
@@ -333,12 +359,14 @@ impl fmt::Debug for Section {
     }
 }
 
+/// A WebAssembly module.
 #[derive(Debug, Clone, Default)]
 pub struct Module {
     pub sections: Vec<Section>,
 }
 
 impl Module {
+    /// Deserialize a WebAssembly module from the given reader.
     pub fn deserialize(reader: &mut impl Read) -> Result<Self, WSError> {
         let it = Self::stream(reader)?;
         let mut sections = Vec::new();
@@ -348,11 +376,13 @@ impl Module {
         Ok(Module { sections })
     }
 
+    /// Deserialize a WebAssembly module from the given file.
     pub fn deserialize_from_file(file: impl AsRef<Path>) -> Result<Self, WSError> {
         let fp = File::open(file.as_ref())?;
         Self::deserialize(&mut BufReader::new(fp))
     }
 
+    /// Serialize a WebAssembly module to the given writer.
     pub fn serialize(&self, writer: &mut impl Write) -> Result<(), WSError> {
         writer.write_all(&WASM_HEADER)?;
         for section in &self.sections {
@@ -361,11 +391,15 @@ impl Module {
         Ok(())
     }
 
+    /// Serialize a WebAssembly module to the given file.
     pub fn serialize_to_file(&self, file: impl AsRef<Path>) -> Result<(), WSError> {
         let fp = File::create(file.as_ref())?;
         self.serialize(&mut BufWriter::new(fp))
     }
 
+    /// Return an iterator over the sections of a WebAssembly module.    
+    ///
+    /// The module is read in a streaming fashion, and doesn't have to be fully loaded into memory.
     pub fn stream<T: Read>(reader: &mut T) -> Result<SectionsIterator<T>, WSError> {
         let mut header = [0u8; 8];
         reader.read_exact(&mut header)?;
@@ -376,6 +410,7 @@ impl Module {
     }
 }
 
+/// An iterator over the sections of a WebAssembly module.
 pub struct SectionsIterator<'t, T: Read> {
     reader: &'t mut T,
 }

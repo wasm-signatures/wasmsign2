@@ -1,3 +1,8 @@
+//! A proof of concept implementation of the WebAssembly module signature proposal.
+
+// The `PublicKey::verify()` function is what most runtimes should use or reimplement if they don't need partial verification.
+// The `SecretKey::sign()` function is what most 3rd-party signing tools can use or reimplement if they don't need support for multiple signatures.
+
 #![allow(clippy::vec_init_then_push)]
 #![forbid(unsafe_code)]
 
@@ -29,6 +34,9 @@ const SIGNATURE_VERSION: u8 = 0x01;
 const SIGNATURE_HASH_FUNCTION: u8 = 0x01;
 
 impl Module {
+    /// Print the structure of a module to the standard output, mainly for debugging purposes.
+    ///
+    /// Set `verbose` to `true` in order to also print details about signature data.
     pub fn show(&self, verbose: bool) -> Result<(), WSError> {
         for (idx, section) in self.sections.iter().enumerate() {
             println!("{}:\t{}", idx, section.display(verbose));
@@ -36,6 +44,12 @@ impl Module {
         Ok(())
     }
 
+    /// Prepare a module for partial verification.
+    ///
+    /// The predicate should return `true` if a section is part of a set that can be verified,
+    /// and `false` if the section can be ignored during verification.
+    ///
+    /// It is highly recommended to always include the standard sections in the signed set.
     pub fn split<P>(self, mut predicate: P) -> Result<Module, WSError>
     where
         P: FnMut(&Section) -> bool,
@@ -78,6 +92,10 @@ impl Module {
         })
     }
 
+    /// Detach the signature from a signed module.
+    ///
+    /// This function returns the module without the embedded signature,
+    /// as well as the detached signature as a byte string.
     pub fn detach_signature(mut self) -> Result<(Module, Vec<u8>), WSError> {
         let mut out_sections = vec![];
         let mut sections = self.sections.into_iter();
@@ -98,6 +116,8 @@ impl Module {
         Ok((self, detached_signature))
     }
 
+    /// Embed a detached signature into a module.
+    /// This function returns the module with embedded signature.
     pub fn attach_signature(mut self, detached_signature: &[u8]) -> Result<Module, WSError> {
         let mut out_sections = vec![];
         let sections = self.sections.into_iter();
@@ -119,7 +139,13 @@ impl Module {
 }
 
 impl SecretKey {
-    pub fn sign(&self, mut module: Module) -> Result<Module, WSError> {
+    /// Sign a module with the secret key.
+    ///
+    /// If the module was already signed, the signature is replaced.
+    ///
+    /// `key_id` is the key identifier of the public key, to be stored with the signature.
+    /// This parameter is optional.
+    pub fn sign(&self, mut module: Module, key_id: Option<&Vec<u8>>) -> Result<Module, WSError> {
         let mut out_sections = vec![Section::Custom(CustomSection::default())];
         let mut hasher = Hash::new();
         for section in module.sections.into_iter() {
@@ -139,7 +165,7 @@ impl SecretKey {
         let signature = self.sk.sign(msg, None).to_vec();
 
         let signature_for_hashes = SignatureForHashes {
-            key_id: None,
+            key_id: key_id.cloned(),
             signature,
         };
         let signed_hashes_set = vec![SignedHashes {
@@ -160,6 +186,15 @@ impl SecretKey {
         Ok(module)
     }
 
+    /// Sign a module with the secret key.
+    ///
+    /// If the module was already signed, the new signature is added to the existing ones.
+    /// `key_id` is the key identifier of the public key, to be stored with the signature.
+    /// This parameter is optional.
+    ///
+    /// `detached` prevents the signature from being embedded.
+    ///
+    /// `allow_extensions` allows new sections to be added to the module later, while retaining the ability for the original module to be verified.
     pub fn sign_multi(
         &self,
         mut module: Module,
@@ -299,6 +334,11 @@ impl SecretKey {
 }
 
 impl PublicKey {
+    /// Verify a module's signature.
+    ///
+    /// `reader` is a reader over the raw module data.
+    ///
+    /// This simplified interface verifies the entire module.
     pub fn verify(&self, reader: &mut impl Read) -> Result<(), WSError> {
         let signature_header = match Module::stream(reader)?
             .next()
@@ -346,6 +386,13 @@ impl PublicKey {
         }
     }
 
+    /// Verify the signature of a module, or module subset.
+    ///
+    /// `reader` is a reader over the raw module data.
+    ///
+    /// `detached_signature` allows the caller to verify a module without an embedded signature.
+    ///
+    /// `predicate` should return `true` for each section that needs to be included in the signature verification.
     pub fn verify_multi<P>(
         &self,
         reader: &mut impl Read,
@@ -479,9 +526,20 @@ impl PublicKey {
     }
 }
 
+/// A sized predicate, used to verify a predicate*public_key matrix.
 pub type BoxedPredicate = Box<dyn Fn(&Section) -> bool>;
 
 impl PublicKeySet {
+    /// Given a set of predicates and a set of public keys, check which public keys verify a signature over sections matching each predicate.
+    ///
+    /// `reader` is a reader over the raw module data.
+    ///
+    /// `detached_signature` is the detached signature of the module, if any.
+    ///
+    /// `predicates` is a set of predicates.
+    ///
+    /// The function returns a vector which maps every predicate to a set public keys verifying a signature over sections matching the predicate.
+    /// The vector is sorted by predicate index.
     pub fn verify_matrix(
         &self,
         reader: &mut impl Read,
