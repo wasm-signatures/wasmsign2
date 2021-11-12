@@ -1,10 +1,10 @@
-# ![Wasmsign2](https://raw.github.com/wasm-signatures/wasmsign2/master/logo.png)
-
-A tool to add and verify digital signatures to/from WASM binaries.
-
 [![GitHub CI](https://github.com/wasm-signatures/wasmsign2/workflows/CI/badge.svg)](https://github.com/wasm-signatures/wasmsign2/actions)
 [![docs.rs](https://docs.rs/wasmsign2/badge.svg)](https://docs.rs/wasmsign2/)
 [![crates.io](https://img.shields.io/crates/v/wasmsign2.svg)](https://crates.io/crates/wasmsign2)
+
+# ![Wasmsign2](https://raw.github.com/wasm-signatures/wasmsign2/master/logo.png)
+
+A tool to add and verify digital signatures to/from WASM binaries.
 
 - [!Wasmsign2](#)
   - [WASM signatures](#wasm-signatures)
