@@ -8,7 +8,7 @@ readme = "README.md"
 keywords = ["webassembly", "modules", "signatures"]
 license = "MIT"
 homepage = "https://github.com/wasm-signatures/design"
-repository = "https://github.com/jedisct1/wasmsign2"
+repository = "https://github.com/wasm-signatures/wasmsign2"
 categories = ["cryptography", "wasm"]
 
 [[bin]]
