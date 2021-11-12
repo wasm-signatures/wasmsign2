@@ -14,10 +14,11 @@ Wasmsign2 is a proof of concept implementation of the [WebAssembly modules signa
 
 The proposal, and this implementation, support domain-specific features such as:
 
-- The ability to have multiple signatures for a single module
+- The ability to have multiple signatures for a single module, with a compact representation
 - The ability to sign a module which was already signed with different keys
+- The ability to extend an existing module additional custom sections, without breaking existing signatures
 - The ability to verify multiple subsets of a module's sections with a single signature
-- The ability to turn an embedded signature into a detached one, and the other way round
+- The ability to turn an embedded signature into a detached one, and the other way round.
 
 ## Installation
 
@@ -66,6 +67,8 @@ Example:
 ```sh
 wasmsign2 show -i z.wasm
 ```
+
+The `-v` switch prints additional details about signature data.
 
 ## Creating a key pair
 
@@ -179,4 +182,42 @@ Example:
 
 ```sh
 wasmsign2 attach -i z2.wasm -o z3.wasm -S signature
+```
+
+## Partial verification
+
+A signature can verify an entire module, but also one or more subsets of it.
+
+This requires "cutting points" to be defined before the signature process. It is impossible to verify a signature beyond cutting point boudaries.
+
+Cutting points can be added to a module with the `split` command:
+
+```text
+wasmsign2 split [OPTIONS] --input-file <input_file> --output-file <output_file>
+
+-i, --input-file <input_file>      Input file
+-o, --output-file <output_file>    Output file
+-s, --split <regex>                custom section names to be signed
+```
+
+This adds cutting points so that it is possible to verify only the subset of custom sections whose name matches the regular expression, in addition to standard sections.
+
+This command can be repeated, to add new cutting points to a module that was already prepared for partial verification.
+
+Example:
+
+```sh
+wasmsign2 split -i z2.wasm -o z3.wasm -s '^.debug_'
+```
+
+The above command makes it possible to verify only the custom sections whose name starts with `.debug_`, even though the entire module was signed.
+
+In order to do partial verification, the `--split` parameter is also available in the verification commands:
+
+```sh
+wasmsign2 verify -i z3.wasm -K public.key -s '^.debug_'
+```
+
+```sh
+wasmsign2 verify_matrix -i z3.wasm -K public.key -K public.key2 -s '.debug_'
 ```

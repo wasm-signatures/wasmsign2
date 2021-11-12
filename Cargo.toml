@@ -2,6 +2,14 @@
 name = "wasmsign2"
 version = "0.1.0"
 edition = "2021"
+authors = ["Frank Denis <github@pureftpd.org>"]
+description = "An implementation of the WebAssembly modules signatures proposal"
+readme = "README.md"
+keywords = ["webassembly", "modules", "signatures"]
+license = "MIT"
+homepage = "https://github.com/wasm-signatures/design"
+repository = "https://github.com/jedisct1/wasmsign2"
+categories = ["cryptography", "wasm"]
 
 [[bin]]
 name = "wasmsign2"
@@ -18,3 +26,8 @@ hmac-sha256 = "1.0.0"
 log = "0.4.14"
 regex = "1.5.4"
 thiserror = "1.0.30"
+
+[profile.release]
+codegen-units = 1
+incremental = false
+panic = "abort"
