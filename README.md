@@ -64,15 +64,17 @@ FLAGS:
     -v               Verbose output
 
 SUBCOMMANDS:
-    attach
-    detach
-    help             Prints this message or the help of the given subcommand(s)
-    keygen
-    show
-    sign
-    split
-    verify
-    verify_matrix
+    attach           Embed a detach signature into a module
+    detach           Detach the signature from a module
+    help             Prints this message or the help of the given
+                     subcommand(s)
+    keygen           Generate a new key pair
+    show             Print the structure of a module
+    sign             Sign a module
+    split            Add cutting points to a module to enable partial
+                     verification
+    verify           Verify a module's signatures
+    verify_matrix    Batch verification against multiple public keys
 ```
 
 ## Inspecting a module

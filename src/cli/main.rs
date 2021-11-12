@@ -20,6 +20,7 @@ fn start() -> Result<(), WSError> {
         )
         .subcommand(
             App::new("keygen")
+                .about("Generate a new key pair")
                 .arg(
                     Arg::with_name("secret_key")
                         .value_name("secret_key_file")
@@ -40,18 +41,21 @@ fn start() -> Result<(), WSError> {
                 ),
         )
         .subcommand(
-            App::new("show").arg(
-                Arg::with_name("in")
-                    .value_name("input_file")
-                    .long("--input-file")
-                    .short("-i")
-                    .multiple(false)
-                    .required(true)
-                    .help("Input file"),
-            ),
+            App::new("show")
+                .about("Print the structure of a module")
+                .arg(
+                    Arg::with_name("in")
+                        .value_name("input_file")
+                        .long("--input-file")
+                        .short("-i")
+                        .multiple(false)
+                        .required(true)
+                        .help("Input file"),
+                ),
         )
         .subcommand(
             App::new("split")
+                .about("Add cutting points to a module to enable partial verification")
                 .arg(
                     Arg::with_name("in")
                         .value_name("input_file")
@@ -81,6 +85,7 @@ fn start() -> Result<(), WSError> {
         )
         .subcommand(
             App::new("sign")
+                .about("Sign a module")
                 .arg(
                     Arg::with_name("in")
                         .value_name("input_file")
@@ -127,6 +132,7 @@ fn start() -> Result<(), WSError> {
         )
         .subcommand(
             App::new("verify")
+                .about("Verify a module's signature")
                 .arg(
                     Arg::with_name("in")
                         .value_name("input_file")
@@ -164,6 +170,7 @@ fn start() -> Result<(), WSError> {
         )
         .subcommand(
             App::new("detach")
+                .about("Detach the signature from a module")
                 .arg(
                     Arg::with_name("in")
                         .value_name("input_file")
@@ -194,6 +201,7 @@ fn start() -> Result<(), WSError> {
         )
         .subcommand(
             App::new("attach")
+                .about("Embed a detach signature into a module")
                 .arg(
                     Arg::with_name("in")
                         .value_name("input_file")
@@ -224,6 +232,7 @@ fn start() -> Result<(), WSError> {
         )
         .subcommand(
             App::new("verify_matrix")
+                .about("Batch verification against multiple public keys")
                 .arg(
                     Arg::with_name("in")
                         .value_name("input_file")
