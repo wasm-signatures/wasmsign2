@@ -2,6 +2,19 @@
 
 A tool to add and verify digital signatures to/from WASM binaries.
 
+- [!Wasmsign2](#)
+  - [WASM signatures](#wasm-signatures)
+  - [Installation](#installation)
+  - [Usage](#usage)
+  - [Inspecting a module](#inspecting-a-module)
+  - [Creating a key pair](#creating-a-key-pair)
+  - [Signing a WebAssembly module](#signing-a-webassembly-module)
+  - [Verifying a WebAssembly module](#verifying-a-webassembly-module)
+  - [Verifying a WebAssembly module against multiple public keys](#verifying-a-webassembly-module-against-multiple-public-keys)
+  - [Detaching a signature from a module](#detaching-a-signature-from-a-module)
+  - [Embedding a detached signature in a module](#embedding-a-detached-signature-in-a-module)
+  - [Partial verification](#partial-verification)
+
 ## WASM signatures
 
 Unlike typical desktop and mobile applications, WebAssembly binaries do not embed any kind of digital signatures to verify that they come from a trusted source, and haven't been tampered with.
