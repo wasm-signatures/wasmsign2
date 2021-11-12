@@ -16,7 +16,7 @@ fn start() -> Result<(), WSError> {
         .arg(
             Arg::with_name("debug")
                 .short("-d")
-                .help("Debug information"),
+                .help("Prints debugging information"),
         )
         .subcommand(
             App::new("keygen")
