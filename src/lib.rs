@@ -282,8 +282,8 @@ impl SecretKey {
         if new_hashes {
             debug!("No matching hash was previously signed.");
             let signatures = vec![signature_for_hashes];
-            let new_signed_parts = SignedHashes { hashes, signatures };
-            signed_hashes_set.push(new_signed_parts);
+            let new_signed_section_sequences = SignedHashes { hashes, signatures };
+            signed_hashes_set.push(new_signed_section_sequences);
         }
         let signature_data = SignatureData {
             specification_version: SIGNATURE_VERSION,
@@ -401,12 +401,13 @@ impl PublicKey {
         let mut hasher = Hash::new();
         let mut matching_section_ranges = vec![];
         debug!("Computed hashes:");
-        let mut part_must_be_signed: Option<bool> = None;
+        let mut section_sequence_must_be_signed: Option<bool> = None;
         for (idx, section) in sections {
             let section = section?;
             section.serialize(&mut hasher)?;
             if section.is_signature_delimiter() {
-                if part_must_be_signed == Some(false) {
+                if section_sequence_must_be_signed == Some(false) {
+                    section_sequence_must_be_signed = None;
                     continue;
                 }
                 let h = hasher.finalize().to_vec();
@@ -415,11 +416,11 @@ impl PublicKey {
                     return Err(WSError::VerificationFailed);
                 }
                 matching_section_ranges.push(0..=idx);
-                part_must_be_signed = None;
+                section_sequence_must_be_signed = None;
             } else {
                 let section_must_be_signed = predicate(&section);
-                match part_must_be_signed {
-                    None => part_must_be_signed = Some(section_must_be_signed),
+                match section_sequence_must_be_signed {
+                    None => section_sequence_must_be_signed = Some(section_must_be_signed),
                     Some(false) if section_must_be_signed => {
                         return Err(WSError::VerificationFailed);
                     }
@@ -442,15 +443,15 @@ impl PublicKey {
         signed_hashes_set: &'t [SignedHashes],
     ) -> Result<HashSet<&'t Vec<u8>>, WSError> {
         let mut valid_hashes = HashSet::new();
-        for signed_part in signed_hashes_set {
+        for signed_section_sequence in signed_hashes_set {
             let mut msg: Vec<u8> = vec![];
             msg.extend_from_slice(SIGNATURE_DOMAIN.as_bytes());
             msg.extend_from_slice(&[SIGNATURE_VERSION, SIGNATURE_HASH_FUNCTION]);
-            let hashes = &signed_part.hashes;
+            let hashes = &signed_section_sequence.hashes;
             for hash in hashes {
                 msg.extend_from_slice(hash);
             }
-            for signature in &signed_part.signatures {
+            for signature in &signed_section_sequence.signatures {
                 match (&signature.key_id, &self.key_id) {
                     (Some(signature_key_id), Some(pk_key_id)) if signature_key_id != pk_key_id => {
                         continue;
@@ -534,9 +535,10 @@ impl PublicKeySet {
             return Err(WSError::VerificationFailed);
         }
 
-        let mut part_must_be_signed_for_pks: HashMap<PublicKey, Option<bool>> = HashMap::new();
+        let mut section_sequence_must_be_signed_for_pks: HashMap<PublicKey, Option<bool>> =
+            HashMap::new();
         for pk in valid_hashes_for_pks.keys() {
-            part_must_be_signed_for_pks.insert(pk.clone(), None);
+            section_sequence_must_be_signed_for_pks.insert(pk.clone(), None);
         }
 
         let mut verify_failures_for_predicates: Vec<HashSet<PublicKey>> = vec![];
@@ -550,8 +552,11 @@ impl PublicKeySet {
             section.serialize(&mut hasher)?;
             if section.is_signature_delimiter() {
                 let h = hasher.finalize().to_vec();
-                for (pk, part_must_be_signed) in part_must_be_signed_for_pks.iter_mut() {
-                    if let Some(false) = part_must_be_signed {
+                for (pk, section_sequence_must_be_signed) in
+                    section_sequence_must_be_signed_for_pks.iter_mut()
+                {
+                    if let Some(false) = section_sequence_must_be_signed {
+                        *section_sequence_must_be_signed = None;
                         continue;
                     }
                     let valid_hashes = match valid_hashes_for_pks.get(pk) {
@@ -561,14 +566,16 @@ impl PublicKeySet {
                     if !valid_hashes.contains(&h) {
                         valid_hashes_for_pks.remove(pk);
                     }
-                    *part_must_be_signed = None;
+                    *section_sequence_must_be_signed = None;
                 }
             } else {
                 for (idx, predicate) in predicates.iter().enumerate() {
                     let section_must_be_signed = predicate(&section);
-                    for (pk, part_must_be_signed) in part_must_be_signed_for_pks.iter_mut() {
-                        match part_must_be_signed {
-                            None => *part_must_be_signed = Some(section_must_be_signed),
+                    for (pk, section_sequence_must_be_signed) in
+                        section_sequence_must_be_signed_for_pks.iter_mut()
+                    {
+                        match section_sequence_must_be_signed {
+                            None => *section_sequence_must_be_signed = Some(section_must_be_signed),
                             Some(false) if section_must_be_signed => {
                                 verify_failures_for_predicates[idx].insert(pk.clone());
                             }
