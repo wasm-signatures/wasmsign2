@@ -152,6 +152,14 @@ fn start() -> Result<(), WSError> {
                         .short("-S")
                         .multiple(false)
                         .help("Signature file"),
+                )
+                .arg(
+                    Arg::with_name("splits")
+                        .long("--split")
+                        .short("-s")
+                        .value_name("regex")
+                        .multiple(false)
+                        .help("custom section names to be verified"),
                 ),
         )
         .subcommand(
@@ -226,13 +234,21 @@ fn start() -> Result<(), WSError> {
                         .help("Input file"),
                 )
                 .arg(
-                    Arg::with_name("public_key")
-                        .value_name("public_key_file")
-                        .long("--public-key")
+                    Arg::with_name("public_keys")
+                        .value_name("public_key_files")
+                        .long("--public-keys")
                         .short("-K")
-                        .multiple(false)
+                        .multiple(true)
                         .required(true)
-                        .help("Public key file"),
+                        .help("Public key files"),
+                )
+                .arg(
+                    Arg::with_name("splits")
+                        .long("--split")
+                        .short("-s")
+                        .value_name("regex")
+                        .multiple(false)
+                        .help("custom section names to be verified"),
                 ),
         )
         .get_matches();
@@ -420,12 +436,11 @@ fn start() -> Result<(), WSError> {
             ),
         };
         let mut pks = std::collections::HashSet::new();
-        for pk_file in matches
-            .value_of("public_key")
+        for pk_files in matches
+            .values_of("public_keys")
             .ok_or(WSError::UsageError("Missing public key files"))?
-            .split(',')
         {
-            let pk = PublicKey::from_file(pk_file)?;
+            let pk = PublicKey::from_file(pk_files)?;
             pks.insert(pk);
         }
         let pks = PublicKeySet::new(pks);

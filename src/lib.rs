@@ -649,6 +649,9 @@ impl PublicKeySet {
         for _predicate in predicates {
             let mut result_for_predicate: HashSet<PublicKey> = HashSet::new();
             for pk in &self.pks {
+                if !valid_hashes_for_pks.contains_key(pk) {
+                    continue;
+                }
                 if !verify_failures_for_predicates[res.len()].contains(pk) {
                     result_for_predicate.insert(pk.clone());
                 }
