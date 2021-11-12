@@ -340,10 +340,8 @@ impl PublicKey {
         let h = hasher.finalize().to_vec();
 
         if valid_hashes.contains(&h) {
-            debug!("Signature is valid");
             Ok(())
         } else {
-            debug!("Signature is invalid");
             Err(WSError::VerificationFailed)
         }
     }
