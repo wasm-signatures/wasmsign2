@@ -1,6 +1,6 @@
 [package]
 name = "wasmsign2"
-version = "1.0.0"
+version = "0.1.0"
 edition = "2021"
 
 [[bin]]

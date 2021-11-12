@@ -41,4 +41,7 @@ pub enum WSError {
 
     #[error("Signature already attached")]
     SignatureAlreadyAttached,
+
+    #[error("Usage error: {0}")]
+    UsageError(&'static str),
 }
