@@ -240,5 +240,5 @@ wasmsign2 verify -i z3.wasm -K public.key -s '^.debug_'
 ```
 
 ```sh
-wasmsign2 verify_matrix -i z3.wasm -K public.key -K public.key2 -s '.debug_'
+wasmsign2 verify_matrix -i z3.wasm -K public.key -K public.key2 -s '^.debug_'
 ```
