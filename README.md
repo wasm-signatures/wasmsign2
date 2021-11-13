@@ -4,7 +4,7 @@
 
 # ![Wasmsign2](https://raw.github.com/wasm-signatures/wasmsign2/master/logo.png)
 
-A digital signature tool for WebAssembly modules.
+A tool and library for signing WebAssembly modules.
 
 - [!Wasmsign2](#)
   - [WASM signatures](#wasm-signatures)
