@@ -122,6 +122,12 @@ fn start() -> Result<(), WSError> {
                         .help("Public key file"),
                 )
                 .arg(
+                    Arg::with_name("ssh")
+                        .long("--ssh")
+                        .short("Z")
+                        .help("Parse OpenSSH keys"),
+                )
+                .arg(
                     Arg::with_name("signature_file")
                         .value_name("signature_file")
                         .long("--signature-file")
@@ -152,6 +158,12 @@ fn start() -> Result<(), WSError> {
                         .help("Public key file"),
                 )
                 .arg(
+                    Arg::with_name("ssh")
+                        .long("--ssh")
+                        .short("Z")
+                        .help("Parse OpenSSH keys"),
+                )
+                .arg(
                     Arg::with_name("signature_file")
                         .value_name("signature_file")
                         .long("--signature-file")
@@ -165,7 +177,7 @@ fn start() -> Result<(), WSError> {
                         .short("-s")
                         .value_name("regex")
                         .multiple(false)
-                        .help("custom section names to be verified"),
+                        .help("Custom section names to be verified"),
                 ),
         )
         .subcommand(
@@ -252,6 +264,12 @@ fn start() -> Result<(), WSError> {
                         .help("Public key files"),
                 )
                 .arg(
+                    Arg::with_name("ssh")
+                        .long("--ssh")
+                        .short("Z")
+                        .help("Parse OpenSSH keys"),
+                )
+                .arg(
                     Arg::with_name("splits")
                         .long("--split")
                         .short("-s")
@@ -335,10 +353,17 @@ fn start() -> Result<(), WSError> {
         let sk_file = matches
             .value_of("secret_key")
             .ok_or(WSError::UsageError("Missing secret key file"))?;
-        let sk = SecretKey::from_file(sk_file)?;
+        let sk = match matches.is_present("ssh") {
+            false => SecretKey::from_file(sk_file)?,
+            true => SecretKey::from_openssh_file(sk_file)?,
+        };
         let pk_file = matches.value_of("public_key");
         let key_id = if let Some(pk_file) = pk_file {
-            let pk = PublicKey::from_file(pk_file)?.attach_default_key_id();
+            let pk = match matches.is_present("ssh") {
+                false => PublicKey::from_file(pk_file)?,
+                true => PublicKey::from_openssh_file(pk_file)?,
+            }
+            .attach_default_key_id();
             pk.key_id().cloned()
         } else {
             None
@@ -377,7 +402,11 @@ fn start() -> Result<(), WSError> {
         let pk_file = matches
             .value_of("public_key")
             .ok_or(WSError::UsageError("Missing public key file"))?;
-        let pk = PublicKey::from_file(pk_file)?.attach_default_key_id();
+        let pk = match matches.is_present("ssh") {
+            false => PublicKey::from_file(pk_file)?,
+            true => PublicKey::from_openssh_file(pk_file)?,
+        }
+        .attach_default_key_id();
         let input_file = input_file.ok_or(WSError::UsageError("Missing input file"))?;
         let mut detached_signatures_ = vec![];
         let detached_signatures = match signature_file {
@@ -444,15 +473,25 @@ fn start() -> Result<(), WSError> {
                     .map_err(|_| WSError::InvalidArgument)?,
             ),
         };
-        let mut pks = std::collections::HashSet::new();
-        for pk_files in matches
+        let pk_files = matches
             .values_of("public_keys")
-            .ok_or(WSError::UsageError("Missing public key files"))?
-        {
-            let pk = PublicKey::from_file(pk_files)?;
-            pks.insert(pk);
-        }
-        let pks = PublicKeySet::new(pks);
+            .ok_or(WSError::UsageError("Missing public key files"))?;
+        let pks = match matches.is_present("ssh") {
+            false => {
+                let mut pks = std::collections::HashSet::new();
+                for pk_file in pk_files {
+                    let pk = PublicKey::from_file(pk_file)?;
+                    pks.insert(pk);
+                }
+                PublicKeySet::new(pks)
+            }
+            true => PublicKeySet::from_openssh_file(
+                pk_files
+                    .into_iter()
+                    .next()
+                    .ok_or(WSError::UsageError("Missing public keys file"))?,
+            )?,
+        };
         let input_file = input_file.ok_or(WSError::UsageError("Missing input file"))?;
         let mut detached_signatures_ = vec![];
         let detached_signatures = match signature_file {

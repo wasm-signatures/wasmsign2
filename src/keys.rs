@@ -82,8 +82,10 @@ impl PublicKey {
     pub fn from_openssh(lines: &str) -> Result<Self, WSError> {
         for line in lines.lines() {
             let line = line.trim();
-            if let Ok(ssh_keys::PublicKey::Ed25519(pk)) = openssh::parse_public_key(line) {
-                if let Ok(pk) = PublicKey::from_bytes(&pk) {
+            if let Ok(ssh_keys::PublicKey::Ed25519(raw)) = openssh::parse_public_key(line) {
+                let mut bytes = vec![ED25519_PK_ID];
+                bytes.extend_from_slice(&raw);
+                if let Ok(pk) = PublicKey::from_bytes(&bytes) {
                     return Ok(pk);
                 }
             };
@@ -194,7 +196,9 @@ impl SecretKey {
     /// Parse an OpenSSH secret key.
     pub fn from_openssh(lines: &str) -> Result<Self, WSError> {
         for sk in openssh::parse_private_key(lines).map_err(|_| WSError::ParseError)? {
-            if let ssh_keys::PrivateKey::Ed25519(bytes) = sk {
+            if let ssh_keys::PrivateKey::Ed25519(raw) = sk {
+                let mut bytes = vec![ED25519_SK_ID];
+                bytes.extend_from_slice(&raw);
                 return Self::from_bytes(&bytes);
             }
         }
@@ -267,8 +271,10 @@ impl PublicKeySet {
         let mut pks = PublicKeySet::empty();
         for line in lines.lines() {
             let line = line.trim();
-            if let Ok(ssh_keys::PublicKey::Ed25519(pk)) = openssh::parse_public_key(line) {
-                if let Ok(pk) = PublicKey::from_bytes(&pk) {
+            if let Ok(ssh_keys::PublicKey::Ed25519(raw)) = openssh::parse_public_key(line) {
+                let mut bytes = vec![ED25519_PK_ID];
+                bytes.extend_from_slice(&raw);
+                if let Ok(pk) = PublicKey::from_bytes(&bytes) {
                     pks.pks.insert(pk);
                 }
             };

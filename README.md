@@ -116,6 +116,7 @@ wasmsign2 sign [OPTIONS] --input-file <input_file> --output-file <output_file> -
 -K, --public-key <public_key_file>       Public key file
 -k, --secret-key <secret_key_file>       Secret key file
 -S, --signature-file <signature_file>    Signature file
+-Z, --ssh                                Parse OpenSSH keys
 ```
 
 Example:
@@ -138,7 +139,8 @@ wasmsign2 verify [OPTIONS] --input-file <input_file> --public-key <public_key_fi
 -i, --input-file <input_file>            Input file
 -K, --public-key <public_key_file>       Public key file
 -S, --signature-file <signature_file>    Signature file
--s, --split <regex>                      custom section names to be verified
+-s, --split <regex>                      Custom section names to be verified
+-Z, --ssh                                Parse OpenSSH keys
 ```
 
 Example:
@@ -156,7 +158,8 @@ wasmsign2 verify_matrix --input-file <input_file> --public-keys <public_key_file
 
 -i, --input-file <input_file>              Input file
 -K, --public-keys <public_key_files>...    Public key files
--s, --split <regex>                        custom section names to be verified
+-s, --split <regex>                        Custom section names to be verified
+-Z, --ssh                                  Parse OpenSSH keys
 ```
 
 The command verifies a module's signatures against multiple keys simultaneously, and reports the set of public keys for which a valid signature was found.
