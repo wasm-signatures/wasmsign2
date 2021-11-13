@@ -4,7 +4,7 @@
 
 # ![Wasmsign2](https://raw.github.com/wasm-signatures/wasmsign2/master/logo.png)
 
-A tool to add and verify digital signatures to/from WASM binaries.
+A digital signature tool for WebAssembly modules.
 
 - [!Wasmsign2](#)
   - [WASM signatures](#wasm-signatures)
