@@ -18,6 +18,7 @@ A tool to add and verify digital signatures to/from WASM binaries.
   - [Detaching a signature from a module](#detaching-a-signature-from-a-module)
   - [Embedding a detached signature in a module](#embedding-a-detached-signature-in-a-module)
   - [Partial verification](#partial-verification)
+  - [OpenSSH keys support](#openssh-keys-support)
 
 ## WASM signatures
 
