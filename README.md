@@ -34,7 +34,7 @@ The proposal, and this implementation, support domain-specific features such as:
 
 - The ability to have multiple signatures for a single module, with a compact representation
 - The ability to sign a module which was already signed with different keys
-- The ability to extend an existing module additional custom sections, without breaking existing signatures
+- The ability to extend an existing module with additional custom sections, without invalidating existing signatures
 - The ability to verify multiple subsets of a module's sections with a single signature
 - The ability to turn an embedded signature into a detached one, and the other way round.
 
