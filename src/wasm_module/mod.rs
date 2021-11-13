@@ -1,6 +1,6 @@
-use crate::error::*;
-use crate::sig_sections::*;
-use crate::varint;
+pub(crate) mod varint;
+
+use crate::signature::*;
 
 use ct_codecs::{Encoder, Hex};
 use std::fmt::{self, Write as _};

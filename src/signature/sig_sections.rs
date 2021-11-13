@@ -2,7 +2,6 @@ use log::*;
 use std::io::{prelude::*, BufReader, BufWriter};
 
 use crate::error::*;
-use crate::varint;
 use crate::wasm_module::*;
 use crate::SIGNATURE_VERSION;
 
