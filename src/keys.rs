@@ -1,6 +1,7 @@
 pub use crate::error::*;
 
 use ct_codecs::{Encoder, Hex};
+use ssh_keys::{self, openssh};
 use std::collections::HashSet;
 use std::fmt;
 use std::fs::File;
@@ -75,6 +76,27 @@ impl PublicKey {
         let mut fp = File::create(file)?;
         fp.write_all(&self.to_bytes())?;
         Ok(())
+    }
+
+    /// Parse a single OpenSSH public key.
+    pub fn from_openssh(lines: &str) -> Result<Self, WSError> {
+        for line in lines.lines() {
+            let line = line.trim();
+            if let Ok(ssh_keys::PublicKey::Ed25519(pk)) = openssh::parse_public_key(line) {
+                if let Ok(pk) = PublicKey::from_bytes(&pk) {
+                    return Ok(pk);
+                }
+            };
+        }
+        Err(WSError::ParseError)
+    }
+
+    /// Parse a single OpenSSH public key from a file.
+    pub fn from_openssh_file(file: &str) -> Result<Self, WSError> {
+        let mut fp = File::open(file)?;
+        let mut lines = String::new();
+        fp.read_to_string(&mut lines)?;
+        Self::from_openssh(&lines)
     }
 
     /// Return the key identifier associated with this public key, if there is one.
@@ -168,6 +190,24 @@ impl SecretKey {
         fp.write_all(&self.to_bytes())?;
         Ok(())
     }
+
+    /// Parse an OpenSSH secret key.
+    pub fn from_openssh(lines: &str) -> Result<Self, WSError> {
+        for sk in openssh::parse_private_key(lines).map_err(|_| WSError::ParseError)? {
+            if let ssh_keys::PrivateKey::Ed25519(bytes) = sk {
+                return Self::from_bytes(&bytes);
+            }
+        }
+        Err(WSError::UnsupportedKeyType)
+    }
+
+    /// Read an OpenSSH key from a file.
+    pub fn from_openssh_file(file: &str) -> Result<Self, WSError> {
+        let mut fp = File::open(file)?;
+        let mut lines = String::new();
+        fp.read_to_string(&mut lines)?;
+        Self::from_openssh(&lines)
+    }
 }
 
 impl fmt::Debug for SecretKey {
@@ -210,9 +250,38 @@ pub struct PublicKeySet {
 }
 
 impl PublicKeySet {
+    /// Create an empty public key set.
+    pub fn empty() -> Self {
+        PublicKeySet {
+            pks: HashSet::new(),
+        }
+    }
+
     /// Create a new public key set.
     pub fn new(pks: HashSet<PublicKey>) -> Self {
         PublicKeySet { pks }
+    }
+
+    /// Parse an OpenSSH public key set.
+    pub fn from_openssh(lines: &str) -> Result<Self, WSError> {
+        let mut pks = PublicKeySet::empty();
+        for line in lines.lines() {
+            let line = line.trim();
+            if let Ok(ssh_keys::PublicKey::Ed25519(pk)) = openssh::parse_public_key(line) {
+                if let Ok(pk) = PublicKey::from_bytes(&pk) {
+                    pks.pks.insert(pk);
+                }
+            };
+        }
+        Ok(pks)
+    }
+
+    /// Parse an OpenSSH public key set from a file.
+    pub fn from_openssh_file(file: &str) -> Result<Self, WSError> {
+        let mut fp = File::open(file)?;
+        let mut lines = String::new();
+        fp.read_to_string(&mut lines)?;
+        Self::from_openssh(&lines)
     }
 
     /// Add a new key to the set.
