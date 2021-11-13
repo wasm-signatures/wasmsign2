@@ -245,3 +245,25 @@ wasmsign2 verify -i z3.wasm -K public.key -s '^.debug_'
 ```sh
 wasmsign2 verify_matrix -i z3.wasm -K public.key -K public.key2 -s '^.debug_'
 ```
+
+## OpenSSH keys support
+
+In addition to the compact key format documented in the proposal, the API allows loading/saving public and secret keys with DER and PEM encoding.
+
+OpenSSH keys can also be used by adding the `--ssh` flag to the `sign`, `verify` and `verify_matrix` commands, provided that they are Ed25519 (EdDSA) keys.
+
+Examples:
+
+```sh
+wasmsign2 sign --ssh -k ~/.ssh/id_ed25519 -i z.wasm -o z2.wasm
+```
+
+```sh
+wasmsign2 verify --ssh -K ~/.ssh/id_ed25519.pub -i z2.wasm
+```
+
+If a file contains more than a single public key, the `verify_matrix` command will check the signature against all discovered Ed25519 keys.
+
+Public key sets from GitHub accounts can be downloaded at `https://github.com/<account>.keys`, replacing `<account>` with an actual GitHub account name.
+
+Keys downloaded from such URL can be directly used to verify WebAssembly signatures.
