@@ -19,6 +19,7 @@ A tool and library for signing WebAssembly modules.
   - [Embedding a detached signature in a module](#embedding-a-detached-signature-in-a-module)
   - [Partial verification](#partial-verification)
   - [OpenSSH keys support](#openssh-keys-support)
+  - [GitHub integration](#github-integration)
 
 ## WASM signatures
 
@@ -270,3 +271,17 @@ If a file contains more than a single public key, the `verify_matrix` command wi
 Public key sets from GitHub accounts can be downloaded at `https://github.com/<account>.keys`, replacing `<account>` with an actual GitHub account name.
 
 Keys downloaded from such URL can be directly used to verify WebAssembly signatures.
+
+## GitHub integration
+
+Public keys can also automatically be retrieved from GitHub accounts, using the `--from-github` parameter.
+
+Examples:
+
+```sh
+wasmsign2 verify -G example_account -i z2.wasm
+```
+
+```sh
+wasmsign2 matrix_verify -G example_account -i z2.wasm
+```
