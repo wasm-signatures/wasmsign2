@@ -154,8 +154,17 @@ fn start() -> Result<(), WSError> {
                         .long("--public-key")
                         .short("-K")
                         .multiple(false)
-                        .required(true)
+                        .required(false)
                         .help("Public key file"),
+                )
+                .arg(
+                    Arg::with_name("from_github")
+                        .value_name("from_github")
+                        .long("--from-github")
+                        .short("-G")
+                        .multiple(false)
+                        .required(false)
+                        .help("GitHub account to retrieve public keys from"),
                 )
                 .arg(
                     Arg::with_name("ssh")
@@ -260,8 +269,17 @@ fn start() -> Result<(), WSError> {
                         .long("--public-keys")
                         .short("-K")
                         .multiple(true)
-                        .required(true)
+                        .required(false)
                         .help("Public key files"),
+                )
+                .arg(
+                    Arg::with_name("from_github")
+                        .value_name("from_github")
+                        .long("--from-github")
+                        .short("-G")
+                        .multiple(false)
+                        .required(false)
+                        .help("GitHub account to retrieve public keys from"),
                 )
                 .arg(
                     Arg::with_name("ssh")
@@ -399,12 +417,16 @@ fn start() -> Result<(), WSError> {
                     .map_err(|_| WSError::InvalidArgument)?,
             ),
         };
-        let pk_file = matches
-            .value_of("public_key")
-            .ok_or(WSError::UsageError("Missing public key file"))?;
-        let pk = match matches.is_present("ssh") {
-            false => PublicKey::from_file(pk_file)?,
-            true => PublicKey::from_openssh_file(pk_file)?,
+        let pk = if let Some(github_account) = matches.value_of("from_github") {
+            PublicKey::from_openssh(&get_pks_from_github(github_account)?)?
+        } else {
+            let pk_file = matches
+                .value_of("public_key")
+                .ok_or(WSError::UsageError("Missing public key file"))?;
+            match matches.is_present("ssh") {
+                false => PublicKey::from_file(pk_file)?,
+                true => PublicKey::from_openssh_file(pk_file)?,
+            }
         }
         .attach_default_key_id();
         let input_file = input_file.ok_or(WSError::UsageError("Missing input file"))?;
@@ -473,25 +495,30 @@ fn start() -> Result<(), WSError> {
                     .map_err(|_| WSError::InvalidArgument)?,
             ),
         };
-        let pk_files = matches
-            .values_of("public_keys")
-            .ok_or(WSError::UsageError("Missing public key files"))?;
-        let pks = match matches.is_present("ssh") {
-            false => {
-                let mut pks = std::collections::HashSet::new();
-                for pk_file in pk_files {
-                    let pk = PublicKey::from_file(pk_file)?;
-                    pks.insert(pk);
+        let pks = if let Some(github_account) = matches.value_of("from_github") {
+            PublicKeySet::from_openssh(&get_pks_from_github(github_account)?)?
+        } else {
+            let pk_files = matches
+                .values_of("public_keys")
+                .ok_or(WSError::UsageError("Missing public key files"))?;
+            match matches.is_present("ssh") {
+                false => {
+                    let mut pks = std::collections::HashSet::new();
+                    for pk_file in pk_files {
+                        let pk = PublicKey::from_file(pk_file)?;
+                        pks.insert(pk);
+                    }
+                    PublicKeySet::new(pks)
                 }
-                PublicKeySet::new(pks)
+                true => PublicKeySet::from_openssh_file(
+                    pk_files
+                        .into_iter()
+                        .next()
+                        .ok_or(WSError::UsageError("Missing public keys file"))?,
+                )?,
             }
-            true => PublicKeySet::from_openssh_file(
-                pk_files
-                    .into_iter()
-                    .next()
-                    .ok_or(WSError::UsageError("Missing public keys file"))?,
-            )?,
-        };
+        }
+        .attach_default_key_id();
         let input_file = input_file.ok_or(WSError::UsageError("Missing input file"))?;
         let mut detached_signatures_ = vec![];
         let detached_signatures = match signature_file {
@@ -526,6 +553,19 @@ fn start() -> Result<(), WSError> {
         return Err(WSError::UsageError("No subcommand specified"));
     }
     Ok(())
+}
+
+fn get_pks_from_github(account: impl AsRef<str>) -> Result<String, WSError> {
+    let account_rawurlencoded = uri_encode::encode_uri_component(account.as_ref());
+    let url = format!("https://github.com/{}.keys", account_rawurlencoded);
+    let response = ureq::get(&url)
+        .call()
+        .map_err(|_| WSError::UsageError("Keys couldn't be retrieved from GitHub"))?;
+    let mut s = vec![];
+    response.into_reader().read_to_end(&mut s)?;
+    String::from_utf8(s).map_err(|_| {
+        WSError::UsageError("Unexpected characters in the public keys retrieved from GitHub")
+    })
 }
 
 fn main() -> Result<(), WSError> {
