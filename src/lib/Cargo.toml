@@ -1,9 +1,9 @@
 [package]
-name = "wasmsign2-cli"
+name = "wasmsign2"
 version = "0.1.2"
 edition = "2021"
 authors = ["Frank Denis <github@pureftpd.org>"]
-description = "CLI tool to sign and verify WebAssembly modules"
+description = "An implementation of the WebAssembly modules signatures proposal"
 readme = "README.md"
 keywords = ["webassembly", "modules", "signatures"]
 license = "MIT"
@@ -11,17 +11,16 @@ homepage = "https://github.com/wasm-signatures/design"
 repository = "https://github.com/wasm-signatures/wasmsign2"
 categories = ["cryptography", "wasm"]
 
-[[bin]]
-name = "wasmsign2"
-path = "src/cli/main.rs"
-
 [dependencies]
-clap = { version = "2.33.3", default-features = false, features = ["wrap_help"] }
-env_logger = { version = "0.9.0", default-features = false, features = ["humantime"] }
+anyhow = "1.0.45"
+ct-codecs = "1.1.1"
+ed25519-compact = { version = "1.0.0", features = ["pem"] }
+getrandom = "0.2.3"
+hmac-sha256 = "1.0.0"
+log = "0.4.14"
 regex = "1.5.4"
-ureq = "2.3.0"
-uri_encode = "1.0.1"
-wasmsign2 = { version = "0.1.2", path = "src/lib" }
+ssh-keys = "0.1.4"
+thiserror = "1.0.30"
 
 [profile.release]
 codegen-units = 1

@@ -2,6 +2,8 @@ use wasmsign2::{
     BoxedPredicate, KeyPair, Module, PublicKey, PublicKeySet, SecretKey, Section, WSError,
 };
 
+use wasmsign2::reexports::log;
+
 #[macro_use]
 extern crate clap;
 
