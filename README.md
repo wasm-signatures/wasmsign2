@@ -50,7 +50,7 @@ It is also a CLI tool to perform common operations, whose usage is summarized be
 The tool requires the Rust compiler, and can be installed with the following command:
 
 ```sh
-cargo install wasmsign2
+cargo install wasmsign2-cli
 ```
 
 ## Usage
