@@ -59,7 +59,7 @@ USAGE:
     wasmsign2 [FLAGS] [SUBCOMMAND]
 
 FLAGS:
-    -d               Debug information
+    -d               Print debugging information
     -h, --help       Prints help information
     -V, --version    Prints version information
     -v               Verbose output
@@ -135,12 +135,13 @@ A module that was already signed can be signed with other keys, and can then be 
 ## Verifying a WebAssembly module
 
 ```text
-wasmsign2 verify [OPTIONS] --input-file <input_file> --public-key <public_key_file>
+wasmsign2 verify [FLAGS] [OPTIONS] --input-file <input_file>
 
 -i, --input-file <input_file>            Input file
 -K, --public-key <public_key_file>       Public key file
 -S, --signature-file <signature_file>    Signature file
 -s, --split <regex>                      Custom section names to be verified
+-G, --from-github <from_github>          GitHub account to retrieve public keys from
 -Z, --ssh                                Parse OpenSSH keys
 ```
 
@@ -155,11 +156,12 @@ The optional `-s/--split` parameter is documented in the "partial verification" 
 ## Verifying a WebAssembly module against multiple public keys
 
 ```text
-wasmsign2 verify_matrix --input-file <input_file> --public-keys <public_key_files>...
+wasmsign2 verify_matrix [FLAGS] [OPTIONS] --input-file <input_file>
 
 -i, --input-file <input_file>              Input file
 -K, --public-keys <public_key_files>...    Public key files
 -s, --split <regex>                        Custom section names to be verified
+-G, --from-github <from_github>            GitHub account to retrieve public keys from
 -Z, --ssh                                  Parse OpenSSH keys
 ```
 
@@ -222,7 +224,7 @@ wasmsign2 split [OPTIONS] --input-file <input_file> --output-file <output_file>
 
 -i, --input-file <input_file>      Input file
 -o, --output-file <output_file>    Output file
--s, --split <regex>                custom section names to be signed
+-s, --split <regex>                Custom section names to be signed
 ```
 
 This adds cutting points so that it is possible to verify only the subset of custom sections whose name matches the regular expression, in addition to standard sections.

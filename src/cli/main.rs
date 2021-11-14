@@ -82,7 +82,7 @@ fn start() -> Result<(), WSError> {
                         .short("-s")
                         .value_name("regex")
                         .multiple(false)
-                        .help("custom section names to be signed"),
+                        .help("Custom section names to be signed"),
                 ),
         )
         .subcommand(
@@ -295,7 +295,7 @@ fn start() -> Result<(), WSError> {
                         .short("-s")
                         .value_name("regex")
                         .multiple(false)
-                        .help("custom section names to be verified"),
+                        .help("Custom section names to be verified"),
                 ),
         )
         .get_matches();
