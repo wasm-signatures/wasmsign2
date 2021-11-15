@@ -39,6 +39,8 @@ The proposal, and this implementation, support domain-specific features such as:
 - The ability to verify multiple subsets of a module's sections with a single signature
 - The ability to turn an embedded signature into a detached one, and the other way round.
 
+The file format is documented in the [WebAssembly tool conventions repository](https://github.com/WebAssembly/tool-conventions/blob/main/Signatures.md).
+
 ## Installation
 
 `wasmsign2` is a Rust crate, that can be used in other applications.
