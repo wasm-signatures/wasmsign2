@@ -22,6 +22,9 @@ pub enum WSError {
     #[error("No valid signatures")]
     VerificationFailed,
 
+    #[error("No valid signatures for the given predicates")]
+    VerificationFailedForPredicates,
+
     #[error("No signatures found")]
     NoSignatures,
 

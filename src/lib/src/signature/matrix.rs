@@ -138,6 +138,11 @@ impl PublicKeySet {
             }
             res.push(result_for_predicate);
         }
+
+        if res.is_empty() {
+            debug!("No valid signatures");
+            return Err(WSError::VerificationFailedForPredicates);
+        }
         Ok(res)
     }
 }

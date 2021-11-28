@@ -228,7 +228,7 @@ impl PublicKey {
                 let h = hasher.finalize().to_vec();
                 debug!("  - [{}]", Hex::encode_to_string(&h).unwrap());
                 if !valid_hashes.contains(&h) {
-                    return Err(WSError::VerificationFailed);
+                    return Err(WSError::VerificationFailedForPredicates);
                 }
                 matching_section_ranges.push(0..=idx);
                 section_sequence_must_be_signed = None;
@@ -237,10 +237,10 @@ impl PublicKey {
                 match section_sequence_must_be_signed {
                     None => section_sequence_must_be_signed = Some(section_must_be_signed),
                     Some(false) if section_must_be_signed => {
-                        return Err(WSError::VerificationFailed);
+                        return Err(WSError::VerificationFailedForPredicates);
                     }
                     Some(true) if !section_must_be_signed => {
-                        return Err(WSError::VerificationFailed);
+                        return Err(WSError::VerificationFailedForPredicates);
                     }
                     _ => {}
                 }
