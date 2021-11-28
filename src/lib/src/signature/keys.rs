@@ -290,6 +290,16 @@ impl PublicKeySet {
         Self::from_openssh(&lines)
     }
 
+    /// Return the number of keys in the set.
+    pub fn len(&self) -> usize {
+        self.pks.len()
+    }
+
+    /// Return true if the set is empty.
+    pub fn is_empty(&self) -> bool {
+        self.pks.is_empty()
+    }
+
     /// Add a new key to the set.
     pub fn insert(&mut self, pk: PublicKey) -> Result<(), WSError> {
         if !self.pks.insert(pk) {
