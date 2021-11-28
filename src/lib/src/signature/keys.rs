@@ -298,6 +298,14 @@ impl PublicKeySet {
         Ok(())
     }
 
+    /// Merge another public key set into this one.
+    pub fn merge(&mut self, other: &PublicKeySet) -> Result<(), WSError> {
+        for pk in other.pks.iter() {
+            self.insert(pk.clone())?;
+        }
+        Ok(())
+    }
+
     /// Remove a key from the set.
     pub fn remove(&mut self, pk: &PublicKey) -> Result<(), WSError> {
         if !self.pks.remove(pk) {
