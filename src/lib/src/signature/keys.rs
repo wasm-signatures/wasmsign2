@@ -101,6 +101,24 @@ impl PublicKey {
         Self::from_openssh(&lines)
     }
 
+    /// Try to guess the public key format.
+    pub fn from_any(data: &[u8]) -> Result<Self, WSError> {
+        if let Ok(pk) = Self::from_bytes(data) {
+            return Ok(pk);
+        }
+        if let Ok(pk) = Self::from_der(data) {
+            return Ok(pk);
+        }
+        let s = String::from_utf8(data.to_vec()).map_err(|_| WSError::ParseError)?;
+        if let Ok(pk) = Self::from_pem(&s) {
+            return Ok(pk);
+        }
+        if let Ok(pk) = Self::from_openssh(&s) {
+            return Ok(pk);
+        }
+        Err(WSError::ParseError)
+    }
+
     /// Return the key identifier associated with this public key, if there is one.
     pub fn key_id(&self) -> Option<&Vec<u8>> {
         self.key_id.as_ref()
