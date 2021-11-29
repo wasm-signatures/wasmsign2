@@ -25,7 +25,7 @@ impl PublicKeySet {
         reader: &mut impl Read,
         detached_signature: Option<&[u8]>,
         predicates: &[impl Fn(&Section) -> bool],
-    ) -> Result<Vec<HashSet<PublicKey>>, WSError> {
+    ) -> Result<Vec<HashSet<&PublicKey>>, WSError> {
         let mut sections = Module::stream(reader)?;
         let signature_header: &Section;
         let signature_header_from_detached_signature;
@@ -125,15 +125,15 @@ impl PublicKeySet {
             }
         }
 
-        let mut res: Vec<HashSet<PublicKey>> = vec![];
+        let mut res: Vec<HashSet<&PublicKey>> = vec![];
         for _predicate in predicates {
-            let mut result_for_predicate: HashSet<PublicKey> = HashSet::new();
+            let mut result_for_predicate: HashSet<&PublicKey> = HashSet::new();
             for pk in &self.pks {
                 if !valid_hashes_for_pks.contains_key(pk) {
                     continue;
                 }
                 if !verify_failures_for_predicates[res.len()].contains(pk) {
-                    result_for_predicate.insert(pk.clone());
+                    result_for_predicate.insert(pk);
                 }
             }
             res.push(result_for_predicate);
