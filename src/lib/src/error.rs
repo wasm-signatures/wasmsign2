@@ -52,6 +52,12 @@ pub enum WSError {
     #[error("Unknown public key")]
     UnknownPublicKey,
 
+    #[error("Too many hashes (max: {0})")]
+    TooManyHashes(usize),
+
+    #[error("Too many signatures (max: {0})")]
+    TooManySignatures(usize),
+
     #[error("Usage error: {0}")]
     UsageError(&'static str),
 }

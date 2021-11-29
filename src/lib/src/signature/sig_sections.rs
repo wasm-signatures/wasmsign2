@@ -8,6 +8,9 @@ use crate::SIGNATURE_VERSION;
 pub const SIGNATURE_SECTION_HEADER_NAME: &str = "signature";
 pub const SIGNATURE_SECTION_DELIMITER_NAME: &str = "signature_delimiter";
 
+pub const MAX_HASHES: usize = 64;
+pub const MAX_SIGNATURES: usize = 256;
+
 #[derive(PartialEq, Debug, Clone, Eq)]
 pub struct SignatureForHashes {
     pub key_id: Option<Vec<u8>>,
@@ -69,6 +72,10 @@ impl SignedHashes {
     pub fn deserialize(bin: impl AsRef<[u8]>) -> Result<Self, WSError> {
         let mut reader = BufReader::new(bin.as_ref());
         let hashes_count = varint::get32(&mut reader)? as _;
+        if hashes_count > MAX_HASHES {
+            debug!("Too many hashes: {} (max: {})", hashes_count, MAX_HASHES);
+            return Err(WSError::TooManyHashes(MAX_HASHES));
+        }
         let mut hashes = Vec::with_capacity(hashes_count);
         for _ in 0..hashes_count {
             let mut hash = vec![0; 32];
@@ -76,6 +83,13 @@ impl SignedHashes {
             hashes.push(hash);
         }
         let signatures_count = varint::get32(&mut reader)? as _;
+        if signatures_count > MAX_SIGNATURES {
+            debug!(
+                "Too many signatures: {} (max: {})",
+                signatures_count, MAX_SIGNATURES
+            );
+            return Err(WSError::TooManySignatures(MAX_SIGNATURES));
+        }
         let mut signatures = Vec::with_capacity(signatures_count);
         for _ in 0..signatures_count {
             let bin = varint::get_slice(&mut reader)?;
@@ -110,6 +124,13 @@ impl SignatureData {
         }
         let hash_function = varint::get7(&mut reader)?;
         let signed_hashes_count = varint::get32(&mut reader)? as _;
+        if signed_hashes_count > MAX_HASHES {
+            debug!(
+                "Too many hashes: {} (max: {})",
+                signed_hashes_count, MAX_HASHES
+            );
+            return Err(WSError::TooManyHashes(MAX_HASHES));
+        }
         let mut signed_hashes_set = Vec::with_capacity(signed_hashes_count);
         for _ in 0..signed_hashes_count {
             let bin = varint::get_slice(&mut reader)?;
