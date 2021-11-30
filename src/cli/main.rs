@@ -449,7 +449,7 @@ fn start() -> Result<(), WSError> {
                 }
             })?;
         } else {
-            pk.verify(&mut reader)?;
+            pk.verify(&mut reader, detached_signatures)?;
         }
         println!("Signature is valid.");
     } else if let Some(matches) = matches.subcommand_matches("detach") {
