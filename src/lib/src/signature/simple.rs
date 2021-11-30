@@ -60,12 +60,31 @@ impl PublicKey {
     ///
     /// `reader` is a reader over the raw module data.
     ///
+    /// `detached_signature` allows the caller to verify a module without an embedded signature.
+    ///
     /// This simplified interface verifies the entire module, with a single public key.
-    pub fn verify(&self, reader: &mut impl Read) -> Result<(), WSError> {
-        let signature_header = match Module::stream(reader)?
-            .next()
-            .ok_or(WSError::ParseError)??
-        {
+    pub fn verify(
+        &self,
+        reader: &mut impl Read,
+        detached_signature: Option<&[u8]>,
+    ) -> Result<(), WSError> {
+        let mut sections = Module::stream(reader)?;
+
+        // Read the signature header from the module, or reconstruct it from the detached signature.
+        let signature_header: &Section;
+        let signature_header_from_detached_signature;
+        let signature_header_from_stream;
+        if let Some(detached_signature) = &detached_signature {
+            signature_header_from_detached_signature = Section::Custom(CustomSection::new(
+                SIGNATURE_SECTION_HEADER_NAME.to_string(),
+                detached_signature.to_vec(),
+            ));
+            signature_header = &signature_header_from_detached_signature;
+        } else {
+            signature_header_from_stream = sections.next().ok_or(WSError::ParseError)??;
+            signature_header = &signature_header_from_stream;
+        }
+        let signature_header = match signature_header {
             Section::Custom(custom_section) if custom_section.is_signature_header() => {
                 custom_section
             }
@@ -74,6 +93,8 @@ impl PublicKey {
                 return Err(WSError::NoSignatures);
             }
         };
+
+        // Actual signature verification starts here.
         let signature_data = signature_header.signature_data()?;
         if signature_data.hash_function != SIGNATURE_HASH_FUNCTION {
             debug!(
@@ -114,13 +135,32 @@ impl PublicKeySet {
     ///
     /// `reader` is a reader over the raw module data.
     ///
+    /// `detached_signature` allows the caller to verify a module without an embedded signature.
+    ///
     /// This simplified interface verifies the entire module, with all public keys from the set.
     /// It returns the set of public keys for which a valid signature was found.
-    pub fn verify(&self, reader: &mut impl Read) -> Result<HashSet<&PublicKey>, WSError> {
-        let signature_header = match Module::stream(reader)?
-            .next()
-            .ok_or(WSError::ParseError)??
-        {
+    pub fn verify(
+        &self,
+        reader: &mut impl Read,
+        detached_signature: Option<&[u8]>,
+    ) -> Result<HashSet<&PublicKey>, WSError> {
+        let mut sections = Module::stream(reader)?;
+
+        // Read the signature header from the module, or reconstruct it from the detached signature.
+        let signature_header: &Section;
+        let signature_header_from_detached_signature;
+        let signature_header_from_stream;
+        if let Some(detached_signature) = &detached_signature {
+            signature_header_from_detached_signature = Section::Custom(CustomSection::new(
+                SIGNATURE_SECTION_HEADER_NAME.to_string(),
+                detached_signature.to_vec(),
+            ));
+            signature_header = &signature_header_from_detached_signature;
+        } else {
+            signature_header_from_stream = sections.next().ok_or(WSError::ParseError)??;
+            signature_header = &signature_header_from_stream;
+        }
+        let signature_header = match signature_header {
             Section::Custom(custom_section) if custom_section.is_signature_header() => {
                 custom_section
             }
@@ -129,6 +169,8 @@ impl PublicKeySet {
                 return Err(WSError::NoSignatures);
             }
         };
+
+        // Actual signature verification starts here.
         let signature_data = signature_header.signature_data()?;
         if signature_data.hash_function != SIGNATURE_HASH_FUNCTION {
             debug!(
