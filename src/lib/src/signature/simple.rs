@@ -98,6 +98,7 @@ impl PublicKey {
             );
             return Err(WSError::ParseError);
         }
+
         let signed_hashes_set = signature_data.signed_hashes_set;
         let valid_hashes = self.valid_hashes_for_pk(&signed_hashes_set)?;
         if valid_hashes.is_empty() {

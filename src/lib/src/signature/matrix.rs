@@ -53,8 +53,8 @@ impl PublicKeySet {
             );
             return Err(WSError::ParseError);
         }
-        let signed_hashes_set = signature_data.signed_hashes_set;
 
+        let signed_hashes_set = signature_data.signed_hashes_set;
         let mut valid_hashes_for_pks = HashMap::new();
         for pk in &self.pks {
             let valid_hashes = pk.valid_hashes_for_pk(&signed_hashes_set)?;
