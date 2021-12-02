@@ -71,20 +71,15 @@ impl PublicKey {
         let mut sections = Module::stream(reader)?;
 
         // Read the signature header from the module, or reconstruct it from the detached signature.
-        let signature_header: &Section;
-        let signature_header_from_detached_signature;
-        let signature_header_from_stream;
-        if let Some(detached_signature) = &detached_signature {
-            signature_header_from_detached_signature = Section::Custom(CustomSection::new(
+        let signature_header_section = if let Some(detached_signature) = &detached_signature {
+            Section::Custom(CustomSection::new(
                 SIGNATURE_SECTION_HEADER_NAME.to_string(),
                 detached_signature.to_vec(),
-            ));
-            signature_header = &signature_header_from_detached_signature;
+            ))
         } else {
-            signature_header_from_stream = sections.next().ok_or(WSError::ParseError)??;
-            signature_header = &signature_header_from_stream;
-        }
-        let signature_header = match signature_header {
+            sections.next().ok_or(WSError::ParseError)??
+        };
+        let signature_header = match signature_header_section {
             Section::Custom(custom_section) if custom_section.is_signature_header() => {
                 custom_section
             }

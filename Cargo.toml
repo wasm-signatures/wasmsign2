@@ -16,7 +16,7 @@ name = "wasmsign2"
 path = "src/cli/main.rs"
 
 [dependencies]
-clap = { version = "2.33.3", default-features = false, features = ["wrap_help"] }
+clap = { version = "2.34.0", default-features = false, features = ["wrap_help"] }
 env_logger = { version = "0.9.0", default-features = false, features = ["humantime"] }
 regex = "1.5.4"
 ureq = "2.3.1"
