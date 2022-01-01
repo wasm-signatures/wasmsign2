@@ -14,30 +14,30 @@ use std::io::{prelude::*, BufReader};
 
 fn start() -> Result<(), WSError> {
     let matches = app_from_crate!()
-        .arg(Arg::with_name("verbose").short("-v").help("Verbose output"))
+        .arg(Arg::new("verbose").short('v').help("Verbose output"))
         .arg(
-            Arg::with_name("debug")
-                .short("-d")
+            Arg::new("debug")
+                .short('d')
                 .help("Prints debugging information"),
         )
         .subcommand(
             App::new("keygen")
                 .about("Generate a new key pair")
                 .arg(
-                    Arg::with_name("secret_key")
+                    Arg::new("secret_key")
                         .value_name("secret_key_file")
                         .long("--secret-key")
-                        .short("-k")
-                        .multiple(false)
+                        .short('k')
+                        .multiple_occurrences(false)
                         .required(true)
                         .help("Secret key file"),
                 )
                 .arg(
-                    Arg::with_name("public_key")
+                    Arg::new("public_key")
                         .value_name("public_key_file")
                         .long("--public-key")
-                        .short("-K")
-                        .multiple(false)
+                        .short('K')
+                        .multiple_occurrences(false)
                         .required(true)
                         .help("Public key file"),
                 ),
@@ -46,11 +46,11 @@ fn start() -> Result<(), WSError> {
             App::new("show")
                 .about("Print the structure of a module")
                 .arg(
-                    Arg::with_name("in")
+                    Arg::new("in")
                         .value_name("input_file")
                         .long("--input-file")
-                        .short("-i")
-                        .multiple(false)
+                        .short('i')
+                        .multiple_occurrences(false)
                         .required(true)
                         .help("Input file"),
                 ),
@@ -59,29 +59,29 @@ fn start() -> Result<(), WSError> {
             App::new("split")
                 .about("Add cutting points to a module to enable partial verification")
                 .arg(
-                    Arg::with_name("in")
+                    Arg::new("in")
                         .value_name("input_file")
                         .long("--input-file")
-                        .short("-i")
-                        .multiple(false)
+                        .short('i')
+                        .multiple_occurrences(false)
                         .required(true)
                         .help("Input file"),
                 )
                 .arg(
-                    Arg::with_name("out")
+                    Arg::new("out")
                         .value_name("output_file")
                         .long("--output-file")
-                        .short("-o")
-                        .multiple(false)
+                        .short('o')
+                        .multiple_occurrences(false)
                         .required(true)
                         .help("Output file"),
                 )
                 .arg(
-                    Arg::with_name("splits")
+                    Arg::new("splits")
                         .long("--split")
-                        .short("-s")
+                        .short('s')
                         .value_name("regex")
-                        .multiple(false)
+                        .multiple_occurrences(false)
                         .help("Custom section names to be signed"),
                 ),
         )
@@ -89,52 +89,52 @@ fn start() -> Result<(), WSError> {
             App::new("sign")
                 .about("Sign a module")
                 .arg(
-                    Arg::with_name("in")
+                    Arg::new("in")
                         .value_name("input_file")
                         .long("--input-file")
-                        .short("-i")
-                        .multiple(false)
+                        .short('i')
+                        .multiple_occurrences(false)
                         .required(true)
                         .help("Input file"),
                 )
                 .arg(
-                    Arg::with_name("out")
+                    Arg::new("out")
                         .value_name("output_file")
                         .long("--output-file")
-                        .short("-o")
-                        .multiple(false)
+                        .short('o')
+                        .multiple_occurrences(false)
                         .required(true)
                         .help("Output file"),
                 )
                 .arg(
-                    Arg::with_name("secret_key")
+                    Arg::new("secret_key")
                         .value_name("secret_key_file")
                         .long("--secret-key")
-                        .short("-k")
-                        .multiple(false)
+                        .short('k')
+                        .multiple_occurrences(false)
                         .required(true)
                         .help("Secret key file"),
                 )
                 .arg(
-                    Arg::with_name("public_key")
+                    Arg::new("public_key")
                         .value_name("public_key_file")
                         .long("--public-key")
-                        .short("-K")
-                        .multiple(false)
+                        .short('K')
+                        .multiple_occurrences(false)
                         .help("Public key file"),
                 )
                 .arg(
-                    Arg::with_name("ssh")
+                    Arg::new("ssh")
                         .long("--ssh")
-                        .short("Z")
+                        .short('Z')
                         .help("Parse OpenSSH keys"),
                 )
                 .arg(
-                    Arg::with_name("signature_file")
+                    Arg::new("signature_file")
                         .value_name("signature_file")
                         .long("--signature-file")
-                        .short("-S")
-                        .multiple(false)
+                        .short('S')
+                        .multiple_occurrences(false)
                         .help("Signature file"),
                 ),
         )
@@ -142,52 +142,52 @@ fn start() -> Result<(), WSError> {
             App::new("verify")
                 .about("Verify a module's signature")
                 .arg(
-                    Arg::with_name("in")
+                    Arg::new("in")
                         .value_name("input_file")
                         .long("--input-file")
-                        .short("-i")
-                        .multiple(false)
+                        .short('i')
+                        .multiple_occurrences(false)
                         .required(true)
                         .help("Input file"),
                 )
                 .arg(
-                    Arg::with_name("public_key")
+                    Arg::new("public_key")
                         .value_name("public_key_file")
                         .long("--public-key")
-                        .short("-K")
-                        .multiple(false)
+                        .short('K')
+                        .multiple_occurrences(false)
                         .required(false)
                         .help("Public key file"),
                 )
                 .arg(
-                    Arg::with_name("from_github")
+                    Arg::new("from_github")
                         .value_name("from_github")
                         .long("--from-github")
-                        .short("-G")
-                        .multiple(false)
+                        .short('G')
+                        .multiple_occurrences(false)
                         .required(false)
                         .help("GitHub account to retrieve public keys from"),
                 )
                 .arg(
-                    Arg::with_name("ssh")
+                    Arg::new("ssh")
                         .long("--ssh")
-                        .short("Z")
+                        .short('Z')
                         .help("Parse OpenSSH keys"),
                 )
                 .arg(
-                    Arg::with_name("signature_file")
+                    Arg::new("signature_file")
                         .value_name("signature_file")
                         .long("--signature-file")
-                        .short("-S")
-                        .multiple(false)
+                        .short('S')
+                        .multiple_occurrences(false)
                         .help("Signature file"),
                 )
                 .arg(
-                    Arg::with_name("splits")
+                    Arg::new("splits")
                         .long("--split")
-                        .short("-s")
+                        .short('s')
                         .value_name("regex")
-                        .multiple(false)
+                        .multiple_occurrences(false)
                         .help("Custom section names to be verified"),
                 ),
         )
@@ -195,29 +195,29 @@ fn start() -> Result<(), WSError> {
             App::new("detach")
                 .about("Detach the signature from a module")
                 .arg(
-                    Arg::with_name("in")
+                    Arg::new("in")
                         .value_name("input_file")
                         .long("--input-file")
-                        .short("-i")
-                        .multiple(false)
+                        .short('i')
+                        .multiple_occurrences(false)
                         .required(true)
                         .help("Input file"),
                 )
                 .arg(
-                    Arg::with_name("out")
+                    Arg::new("out")
                         .value_name("output_file")
                         .long("--output-file")
-                        .short("-o")
-                        .multiple(false)
+                        .short('o')
+                        .multiple_occurrences(false)
                         .required(true)
                         .help("Output file"),
                 )
                 .arg(
-                    Arg::with_name("signature_file")
+                    Arg::new("signature_file")
                         .value_name("signature_file")
                         .long("--signature-file")
-                        .short("-S")
-                        .multiple(false)
+                        .short('S')
+                        .multiple_occurrences(false)
                         .required(true)
                         .help("Signature file"),
                 ),
@@ -226,29 +226,29 @@ fn start() -> Result<(), WSError> {
             App::new("attach")
                 .about("Embed a detach signature into a module")
                 .arg(
-                    Arg::with_name("in")
+                    Arg::new("in")
                         .value_name("input_file")
                         .long("--input-file")
-                        .short("-i")
-                        .multiple(false)
+                        .short('i')
+                        .multiple_occurrences(false)
                         .required(true)
                         .help("Input file"),
                 )
                 .arg(
-                    Arg::with_name("out")
+                    Arg::new("out")
                         .value_name("output_file")
                         .long("--output-file")
-                        .short("-o")
-                        .multiple(false)
+                        .short('o')
+                        .multiple_occurrences(false)
                         .required(true)
                         .help("Output file"),
                 )
                 .arg(
-                    Arg::with_name("signature_file")
+                    Arg::new("signature_file")
                         .value_name("signature_file")
                         .long("--signature-file")
-                        .short("-S")
-                        .multiple(false)
+                        .short('S')
+                        .multiple_occurrences(false)
                         .required(true)
                         .help("Signature file"),
                 ),
@@ -257,44 +257,44 @@ fn start() -> Result<(), WSError> {
             App::new("verify_matrix")
                 .about("Batch verification against multiple public keys")
                 .arg(
-                    Arg::with_name("in")
+                    Arg::new("in")
                         .value_name("input_file")
                         .long("--input-file")
-                        .short("-i")
-                        .multiple(false)
+                        .short('i')
+                        .multiple_occurrences(false)
                         .required(true)
                         .help("Input file"),
                 )
                 .arg(
-                    Arg::with_name("public_keys")
+                    Arg::new("public_keys")
                         .value_name("public_key_files")
                         .long("--public-keys")
-                        .short("-K")
-                        .multiple(true)
+                        .short('K')
+                        .multiple_occurrences(true)
                         .required(false)
                         .help("Public key files"),
                 )
                 .arg(
-                    Arg::with_name("from_github")
+                    Arg::new("from_github")
                         .value_name("from_github")
                         .long("--from-github")
-                        .short("-G")
-                        .multiple(false)
+                        .short('G')
+                        .multiple_occurrences(false)
                         .required(false)
                         .help("GitHub account to retrieve public keys from"),
                 )
                 .arg(
-                    Arg::with_name("ssh")
+                    Arg::new("ssh")
                         .long("--ssh")
-                        .short("Z")
+                        .short('Z')
                         .help("Parse OpenSSH keys"),
                 )
                 .arg(
-                    Arg::with_name("splits")
+                    Arg::new("splits")
                         .long("--split")
-                        .short("-s")
+                        .short('s')
                         .value_name("regex")
-                        .multiple(false)
+                        .multiple_occurrences(false)
                         .help("Custom section names to be verified"),
                 ),
         )
