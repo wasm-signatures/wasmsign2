@@ -1,6 +1,6 @@
 [package]
 name = "wasmsign2"
-version = "0.1.11"
+version = "0.1.12"
 edition = "2021"
 authors = ["Frank Denis <github@pureftpd.org>"]
 description = "An implementation of the WebAssembly modules signatures proposal"
@@ -14,9 +14,9 @@ categories = ["cryptography", "wasm"]
 [dependencies]
 anyhow = "1.0.53"
 ct-codecs = "1.1.1"
-ed25519-compact = { version = "1.0.8", features = ["pem"] }
+ed25519-compact = { version = "1.0.11", features = ["pem"] }
 getrandom = { version = "0.2.4", features = ["js"] }
-hmac-sha256 = "1.1.1"
+hmac-sha256 = "1.1.2"
 log = "0.4.14"
 regex = "1.5.4"
 ssh-keys = "0.1.4"
