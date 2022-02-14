@@ -20,6 +20,7 @@ pub mod reexports {
     pub use {anyhow, ct_codecs, getrandom, hmac_sha256, log, regex, thiserror};
 }
 
-const SIGNATURE_DOMAIN: &str = "wasmsig";
+const SIGNATURE_WASM_DOMAIN: &str = "wasmsig";
 const SIGNATURE_VERSION: u8 = 0x01;
+const SIGNATURE_WASM_MODULE_CONTENT_TYPE: u8 = 0x01;
 const SIGNATURE_HASH_FUNCTION: u8 = 0x01;

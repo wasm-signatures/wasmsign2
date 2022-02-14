@@ -49,7 +49,7 @@ impl PublicKeySet {
         if signature_data.hash_function != SIGNATURE_HASH_FUNCTION {
             debug!(
                 "Unsupported hash function: {:02x}",
-                signature_data.specification_version
+                signature_data.hash_function,
             );
             return Err(WSError::ParseError);
         }

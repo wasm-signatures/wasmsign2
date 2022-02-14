@@ -26,7 +26,7 @@ impl SecretKey {
         let h = hasher.finalize().to_vec();
 
         let mut msg: Vec<u8> = vec![];
-        msg.extend_from_slice(SIGNATURE_DOMAIN.as_bytes());
+        msg.extend_from_slice(SIGNATURE_WASM_DOMAIN.as_bytes());
         msg.extend_from_slice(&[SIGNATURE_VERSION, SIGNATURE_HASH_FUNCTION]);
         msg.extend_from_slice(&h);
 
@@ -42,6 +42,7 @@ impl SecretKey {
         }];
         let signature_data = SignatureData {
             specification_version: SIGNATURE_VERSION,
+            content_type: SIGNATURE_WASM_MODULE_CONTENT_TYPE,
             hash_function: SIGNATURE_HASH_FUNCTION,
             signed_hashes_set,
         };

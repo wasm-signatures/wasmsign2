@@ -4,6 +4,7 @@ use std::io::{prelude::*, BufReader, BufWriter};
 use crate::error::*;
 use crate::wasm_module::*;
 use crate::SIGNATURE_VERSION;
+use crate::SIGNATURE_WASM_MODULE_CONTENT_TYPE;
 
 pub const SIGNATURE_SECTION_HEADER_NAME: &str = "signature";
 pub const SIGNATURE_SECTION_DELIMITER_NAME: &str = "signature_delimiter";
@@ -26,6 +27,7 @@ pub struct SignedHashes {
 #[derive(PartialEq, Debug, Clone, Eq)]
 pub struct SignatureData {
     pub specification_version: u8,
+    pub content_type: u8,
     pub hash_function: u8,
     pub signed_hashes_set: Vec<SignedHashes>,
 }
@@ -104,6 +106,7 @@ impl SignatureData {
     pub fn serialize(&self) -> Result<Vec<u8>, WSError> {
         let mut writer = BufWriter::new(Vec::new());
         varint::put(&mut writer, self.specification_version as _)?;
+        varint::put(&mut writer, self.content_type as _)?;
         varint::put(&mut writer, self.hash_function as _)?;
         varint::put(&mut writer, self.signed_hashes_set.len() as _)?;
         for signed_hashes in &self.signed_hashes_set {
@@ -120,6 +123,11 @@ impl SignatureData {
                 "Unsupported specification version: {:02x}",
                 specification_version
             );
+            return Err(WSError::ParseError);
+        }
+        let content_type = varint::get7(&mut reader)?;
+        if content_type != SIGNATURE_WASM_MODULE_CONTENT_TYPE {
+            debug!("Unsupported content type: {:02x}", content_type);
             return Err(WSError::ParseError);
         }
         let hash_function = varint::get7(&mut reader)?;
@@ -139,6 +147,7 @@ impl SignatureData {
         }
         Ok(Self {
             specification_version,
+            content_type,
             hash_function,
             signed_hashes_set,
         })

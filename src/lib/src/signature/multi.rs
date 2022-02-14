@@ -83,7 +83,7 @@ impl SecretKey {
         hashes: Vec<Vec<u8>>,
     ) -> Result<Section, WSError> {
         let mut msg: Vec<u8> = vec![];
-        msg.extend_from_slice(SIGNATURE_DOMAIN.as_bytes());
+        msg.extend_from_slice(SIGNATURE_WASM_DOMAIN.as_bytes());
         msg.extend_from_slice(&[SIGNATURE_VERSION, SIGNATURE_HASH_FUNCTION]);
         for hash in &hashes {
             msg.extend_from_slice(hash);
@@ -93,10 +93,10 @@ impl SecretKey {
 
         debug!(
             "sig = Ed25519(sk, \"{}\" ‖ {:02x} ‖ {:02x} ‖ {})\n",
-            SIGNATURE_DOMAIN,
+            SIGNATURE_WASM_DOMAIN,
             SIGNATURE_VERSION,
             SIGNATURE_HASH_FUNCTION,
-            Hex::encode_to_string(&msg[SIGNATURE_DOMAIN.len() + 2..]).unwrap()
+            Hex::encode_to_string(&msg[SIGNATURE_WASM_DOMAIN.len() + 2..]).unwrap()
         );
 
         let signature = sk.sk.sign(msg, None).to_vec();
@@ -111,6 +111,8 @@ impl SecretKey {
             None => vec![],
             Some(previous_signature_data)
                 if previous_signature_data.specification_version == SIGNATURE_VERSION
+                    && previous_signature_data.content_type
+                        == SIGNATURE_WASM_MODULE_CONTENT_TYPE
                     && previous_signature_data.hash_function == SIGNATURE_HASH_FUNCTION =>
             {
                 previous_signature_data.signed_hashes_set.clone()
@@ -144,6 +146,7 @@ impl SecretKey {
         }
         let signature_data = SignatureData {
             specification_version: SIGNATURE_VERSION,
+            content_type: SIGNATURE_WASM_MODULE_CONTENT_TYPE,
             hash_function: SIGNATURE_HASH_FUNCTION,
             signed_hashes_set,
         };
@@ -195,7 +198,7 @@ impl PublicKey {
         if signature_data.hash_function != SIGNATURE_HASH_FUNCTION {
             debug!(
                 "Unsupported hash function: {:02x}",
-                signature_data.specification_version
+                signature_data.hash_function
             );
             return Err(WSError::ParseError);
         }
@@ -257,7 +260,7 @@ impl PublicKey {
         let mut valid_hashes = HashSet::new();
         for signed_section_sequence in signed_hashes_set {
             let mut msg: Vec<u8> = vec![];
-            msg.extend_from_slice(SIGNATURE_DOMAIN.as_bytes());
+            msg.extend_from_slice(SIGNATURE_WASM_DOMAIN.as_bytes());
             msg.extend_from_slice(&[SIGNATURE_VERSION, SIGNATURE_HASH_FUNCTION]);
             let hashes = &signed_section_sequence.hashes;
             for hash in hashes {
