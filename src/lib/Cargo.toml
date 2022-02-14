@@ -1,6 +1,6 @@
 [package]
 name = "wasmsign2"
-version = "0.1.12"
+version = "0.1.13"
 edition = "2021"
 authors = ["Frank Denis <github@pureftpd.org>"]
 description = "An implementation of the WebAssembly modules signatures proposal"

@@ -84,7 +84,11 @@ impl SecretKey {
     ) -> Result<Section, WSError> {
         let mut msg: Vec<u8> = vec![];
         msg.extend_from_slice(SIGNATURE_WASM_DOMAIN.as_bytes());
-        msg.extend_from_slice(&[SIGNATURE_VERSION, SIGNATURE_HASH_FUNCTION]);
+        msg.extend_from_slice(&[
+            SIGNATURE_VERSION,
+            SIGNATURE_WASM_MODULE_CONTENT_TYPE,
+            SIGNATURE_HASH_FUNCTION,
+        ]);
         for hash in &hashes {
             msg.extend_from_slice(hash);
         }
@@ -92,9 +96,10 @@ impl SecretKey {
         debug!("* Adding signature:\n");
 
         debug!(
-            "sig = Ed25519(sk, \"{}\" ‖ {:02x} ‖ {:02x} ‖ {})\n",
+            "sig = Ed25519(sk, \"{}\" ‖ {:02x} ‖ {:02x} ‖ {:02x} ‖ {})\n",
             SIGNATURE_WASM_DOMAIN,
             SIGNATURE_VERSION,
+            SIGNATURE_WASM_MODULE_CONTENT_TYPE,
             SIGNATURE_HASH_FUNCTION,
             Hex::encode_to_string(&msg[SIGNATURE_WASM_DOMAIN.len() + 2..]).unwrap()
         );
@@ -261,7 +266,11 @@ impl PublicKey {
         for signed_section_sequence in signed_hashes_set {
             let mut msg: Vec<u8> = vec![];
             msg.extend_from_slice(SIGNATURE_WASM_DOMAIN.as_bytes());
-            msg.extend_from_slice(&[SIGNATURE_VERSION, SIGNATURE_HASH_FUNCTION]);
+            msg.extend_from_slice(&[
+                SIGNATURE_VERSION,
+                SIGNATURE_WASM_MODULE_CONTENT_TYPE,
+                SIGNATURE_HASH_FUNCTION,
+            ]);
             let hashes = &signed_section_sequence.hashes;
             for hash in hashes {
                 msg.extend_from_slice(hash);

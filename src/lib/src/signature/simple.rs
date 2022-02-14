@@ -27,7 +27,11 @@ impl SecretKey {
 
         let mut msg: Vec<u8> = vec![];
         msg.extend_from_slice(SIGNATURE_WASM_DOMAIN.as_bytes());
-        msg.extend_from_slice(&[SIGNATURE_VERSION, SIGNATURE_HASH_FUNCTION]);
+        msg.extend_from_slice(&[
+            SIGNATURE_VERSION,
+            SIGNATURE_WASM_MODULE_CONTENT_TYPE,
+            SIGNATURE_HASH_FUNCTION,
+        ]);
         msg.extend_from_slice(&h);
 
         let signature = self.sk.sign(msg, None).to_vec();
@@ -169,6 +173,13 @@ impl PublicKeySet {
 
         // Actual signature verification starts here.
         let signature_data = signature_header.signature_data()?;
+        if signature_data.content_type != SIGNATURE_WASM_MODULE_CONTENT_TYPE {
+            debug!(
+                "Unsupported content type: {:02x}",
+                signature_data.content_type
+            );
+            return Err(WSError::ParseError);
+        }
         if signature_data.hash_function != SIGNATURE_HASH_FUNCTION {
             debug!(
                 "Unsupported hash function: {:02x}",
