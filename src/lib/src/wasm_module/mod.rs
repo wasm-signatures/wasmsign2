@@ -192,6 +192,12 @@ impl SectionLike for CustomSection {
                 .unwrap();
                 writeln!(
                     s,
+                    "- content_type: 0x{:02x}",
+                    signature_data.content_type,
+                )
+                .unwrap();
+                writeln!(
+                    s,
                     "- hash function: 0x{:02x} (SHA-256)",
                     signature_data.hash_function
                 )
