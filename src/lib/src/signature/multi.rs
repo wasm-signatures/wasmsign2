@@ -216,7 +216,7 @@ impl PublicKey {
         }
         debug!("Hashes matching the signature:");
         for valid_hash in &valid_hashes {
-            debug!("  - [{}]", Hex::encode_to_string(&valid_hash).unwrap());
+            debug!("  - [{}]", Hex::encode_to_string(valid_hash).unwrap());
         }
         let mut hasher = Hash::new();
         let mut matching_section_ranges = vec![];
@@ -294,7 +294,7 @@ impl PublicKey {
                 }
                 debug!(
                     "Hash signature is valid for key [{}]",
-                    Hex::encode_to_string(&*self.pk).unwrap()
+                    Hex::encode_to_string(*self.pk).unwrap()
                 );
                 for hash in hashes {
                     valid_hashes.insert(hash);
