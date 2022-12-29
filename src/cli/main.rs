@@ -329,9 +329,9 @@ fn start() -> Result<(), WSError> {
             .value_of("public_key")
             .ok_or(WSError::UsageError("Missing public key file"))?;
         kp.sk.to_file(sk_file)?;
-        println!("Secret key saved to [{}]", sk_file);
+        println!("Secret key saved to [{sk_file}]");
         kp.pk.to_file(pk_file)?;
-        println!("Public key saved to [{}]", pk_file);
+        println!("Public key saved to [{pk_file}]");
     } else if let Some(matches) = matches.subcommand_matches("split") {
         let input_file = matches.value_of("in");
         let output_file = matches.value_of("out");
@@ -548,7 +548,7 @@ fn start() -> Result<(), WSError> {
         } else {
             println!("Valid public keys:");
             for pk in valid_pks {
-                println!("  - {:x?}", pk);
+                println!("  - {pk:x?}");
             }
         }
     } else {
@@ -559,7 +559,7 @@ fn start() -> Result<(), WSError> {
 
 fn get_pks_from_github(account: impl AsRef<str>) -> Result<String, WSError> {
     let account_rawurlencoded = uri_encode::encode_uri_component(account.as_ref());
-    let url = format!("https://github.com/{}.keys", account_rawurlencoded);
+    let url = format!("https://github.com/{account_rawurlencoded}.keys");
     let response = ureq::get(&url)
         .call()
         .map_err(|_| WSError::UsageError("Keys couldn't be retrieved from GitHub"))?;
@@ -575,7 +575,7 @@ fn main() -> Result<(), WSError> {
     match res {
         Ok(_) => {}
         Err(e) => {
-            eprintln!("{}", e);
+            eprintln!("{e}");
             std::process::exit(1);
         }
     }
