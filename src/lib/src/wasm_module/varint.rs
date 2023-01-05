@@ -13,7 +13,7 @@ pub fn get7(reader: &mut impl Read) -> Result<u8, WSError> {
                 e.into()
             });
         };
-        v |= ((byte[0] & 0x7f) as u8) << (i * 7);
+        v |= (byte[0] & 0x7f) << (i * 7);
         if (byte[0] & 0x80) == 0 {
             return Ok(v);
         }

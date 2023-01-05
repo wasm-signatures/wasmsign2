@@ -85,7 +85,7 @@ impl fmt::Display for SectionId {
             SectionId::Element => write!(f, "elements section"),
             SectionId::Code => write!(f, "code section"),
             SectionId::Data => write!(f, "data section"),
-            SectionId::Extension(x) => write!(f, "section id#{}", x),
+            SectionId::Extension(x) => write!(f, "section id#{x}"),
         }
     }
 }
