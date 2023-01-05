@@ -25,7 +25,7 @@ env_logger = { version = "0.10.0", default-features = false, features = [
     "humantime",
 ] }
 regex = "1.7.0"
-ureq = "2.5.0"
+ureq = "2.6.1"
 uri_encode = "1.0.1"
 wasmsign2 = { version = "0.1.13", path = "src/lib" }
 
