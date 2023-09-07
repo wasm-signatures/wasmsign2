@@ -30,6 +30,7 @@ Wasmsign2 takes an existing WebAssembly module, computes a signature for its con
 The resulting binary remains a standalone, valid WebAssembly module, but signatures can be verified prior to executing it.
 
 Wasmsign2 is a proof of concept implementation of the [WebAssembly modules signatures](https://github.com/wasm-signatures/design) proposal.
+The file format is documented in the [WebAssembly tool conventions repository](https://github.com/WebAssembly/tool-conventions/blob/main/Signatures.md).
 
 The proposal, and this implementation, support domain-specific features such as:
 
@@ -38,8 +39,6 @@ The proposal, and this implementation, support domain-specific features such as:
 - The ability to extend an existing module with additional custom sections, without invalidating existing signatures
 - The ability to verify multiple subsets of a module's sections with a single signature
 - The ability to turn an embedded signature into a detached one, and the other way round.
-
-The file format is documented in the [WebAssembly tool conventions repository](https://github.com/WebAssembly/tool-conventions/blob/main/Signatures.md).
 
 ## Installation
 
