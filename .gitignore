@@ -1,4 +1,10 @@
 /target
 *~
 Cargo.lock
-z.wasm
+*.wasm
+*.key
+*.key2
+*.sh
+signature
+src/lib/target
+wasmsign2
