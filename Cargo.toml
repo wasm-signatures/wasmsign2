@@ -16,16 +16,16 @@ name = "wasmsign2"
 path = "src/cli/main.rs"
 
 [dependencies]
-clap = { version = "3.2.23", default-features = false, features = [
+clap = { version = "3.2.25", default-features = false, features = [
     "std",
     "cargo",
     "wrap_help",
 ] }
-env_logger = { version = "0.10.0", default-features = false, features = [
+env_logger = { version = "0.10.1", default-features = false, features = [
     "humantime",
 ] }
-regex = "1.7.3"
-ureq = "2.6.2"
+regex = "1.10.2"
+ureq = "2.9.1"
 uri_encode = "1.0.1"
 wasmsign2 = { version = "0.1.13", path = "src/lib" }
 
