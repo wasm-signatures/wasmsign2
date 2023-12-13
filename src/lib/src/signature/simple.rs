@@ -38,6 +38,7 @@ impl SecretKey {
 
         let signature_for_hashes = SignatureForHashes {
             key_id: key_id.cloned(),
+            alg_id: ED25519_PK_ID,
             signature,
         };
         let signed_hashes_set = vec![SignedHashes {

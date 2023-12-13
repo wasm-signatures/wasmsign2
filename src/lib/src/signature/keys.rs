@@ -8,8 +8,8 @@ use std::io::{self, prelude::*};
 use std::path::Path;
 use std::{fmt, str};
 
-const ED25519_PK_ID: u8 = 0x01;
-const ED25519_SK_ID: u8 = 0x81;
+pub(crate) const ED25519_PK_ID: u8 = 0x01;
+pub(crate) const ED25519_SK_ID: u8 = 0x81;
 
 /// A public key.
 #[derive(Clone, Eq, PartialEq, Hash)]

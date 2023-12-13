@@ -3,6 +3,7 @@ use std::io::{prelude::*, BufReader, BufWriter};
 
 use crate::error::*;
 use crate::wasm_module::*;
+use crate::ED25519_PK_ID;
 use crate::SIGNATURE_VERSION;
 use crate::SIGNATURE_WASM_MODULE_CONTENT_TYPE;
 
@@ -15,6 +16,7 @@ pub const MAX_SIGNATURES: usize = 256;
 #[derive(PartialEq, Debug, Clone, Eq)]
 pub struct SignatureForHashes {
     pub key_id: Option<Vec<u8>>,
+    pub alg_id: u8,
     pub signature: Vec<u8>,
 }
 
@@ -40,6 +42,7 @@ impl SignatureForHashes {
         } else {
             varint::put(&mut writer, 0)?;
         }
+        writer.write(&[self.alg_id])?;
         varint::put_slice(&mut writer, &self.signature)?;
         Ok(writer.into_inner().unwrap())
     }
@@ -52,8 +55,19 @@ impl SignatureForHashes {
         } else {
             Some(key_id)
         };
+        let mut alg_id = [0u8; 1];
+        reader.read_exact(&mut alg_id)?;
+        let alg_id = alg_id[0];
+        if alg_id != ED25519_PK_ID {
+            debug!("Unsupported algorithm: {:02x}", alg_id);
+            return Err(WSError::ParseError);
+        }
         let signature = varint::get_slice(&mut reader)?;
-        Ok(Self { key_id, signature })
+        Ok(Self {
+            key_id,
+            alg_id,
+            signature,
+        })
     }
 }
 
@@ -95,8 +109,9 @@ impl SignedHashes {
         let mut signatures = Vec::with_capacity(signatures_count);
         for _ in 0..signatures_count {
             let bin = varint::get_slice(&mut reader)?;
-            let signature = SignatureForHashes::deserialize(bin)?;
-            signatures.push(signature);
+            if let Ok(signature) = SignatureForHashes::deserialize(bin) {
+                signatures.push(signature);
+            }
         }
         Ok(Self { hashes, signatures })
     }
