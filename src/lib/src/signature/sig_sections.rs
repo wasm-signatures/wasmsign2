@@ -42,7 +42,7 @@ impl SignatureForHashes {
         } else {
             varint::put(&mut writer, 0)?;
         }
-        writer.write(&[self.alg_id])?;
+        writer.write_all(&[self.alg_id])?;
         varint::put_slice(&mut writer, &self.signature)?;
         Ok(writer.into_inner().unwrap())
     }
