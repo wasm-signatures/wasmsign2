@@ -542,7 +542,7 @@ fn start() -> Result<(), WSError> {
             vec![Box::new(|_| true)]
         };
         let matrix = pks.verify_matrix(&mut reader, detached_signatures, &predicates)?;
-        let valid_pks = matrix.get(0).ok_or(WSError::UsageError("No predicates"))?;
+        let valid_pks = matrix.first().ok_or(WSError::UsageError("No predicates"))?;
         if valid_pks.is_empty() {
             println!("No valid public keys found");
         } else {
