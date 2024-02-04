@@ -4,6 +4,9 @@ pub enum WSError {
     #[error("Internal error: [{0}]")]
     InternalError(String),
 
+    #[error("Unsupported module type")]
+    UnsupportedModuleType,
+
     #[error("Parse error")]
     ParseError,
 

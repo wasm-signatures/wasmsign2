@@ -3,13 +3,17 @@ pub(crate) mod varint;
 use crate::signature::*;
 
 use ct_codecs::{Encoder, Hex};
+use log::*;
 use std::fmt::{self, Write as _};
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader, BufWriter};
 use std::path::Path;
 use std::str;
 
-const WASM_HEADER: [u8; 8] = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
+pub type Header = [u8; 8];
+
+const WASM_HEADER: Header = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
+const WASM_HEADER_COMPONENT: Header = [0x00, 0x61, 0x73, 0x6d, 0x0d, 0x00, 0x01, 0x00];
 
 /// A section identifier.
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -190,12 +194,7 @@ impl SectionLike for CustomSection {
                     signature_data.specification_version,
                 )
                 .unwrap();
-                writeln!(
-                    s,
-                    "- content_type: 0x{:02x}",
-                    signature_data.content_type,
-                )
-                .unwrap();
+                writeln!(s, "- content_type: 0x{:02x}", signature_data.content_type,).unwrap();
                 writeln!(
                     s,
                     "- hash function: 0x{:02x} (SHA-256)",
@@ -369,18 +368,20 @@ impl fmt::Debug for Section {
 /// A WebAssembly module.
 #[derive(Debug, Clone, Default)]
 pub struct Module {
+    pub header: Header,
     pub sections: Vec<Section>,
 }
 
 impl Module {
     /// Deserialize a WebAssembly module from the given reader.
     pub fn deserialize(reader: &mut impl Read) -> Result<Self, WSError> {
+        let header = Self::stream_init(reader)?;
         let it = Self::stream(reader)?;
         let mut sections = Vec::new();
         for section in it {
             sections.push(section?);
         }
-        Ok(Module { sections })
+        Ok(Module { header, sections })
     }
 
     /// Deserialize a WebAssembly module from the given file.
@@ -391,7 +392,7 @@ impl Module {
 
     /// Serialize a WebAssembly module to the given writer.
     pub fn serialize(&self, writer: &mut impl Write) -> Result<(), WSError> {
-        writer.write_all(&WASM_HEADER)?;
+        writer.write_all(&self.header)?;
         for section in &self.sections {
             section.serialize(writer)?;
         }
@@ -404,15 +405,24 @@ impl Module {
         self.serialize(&mut BufWriter::new(fp))
     }
 
+    /// Parse the module's header. That function must be called before `stream`.
+    pub fn stream_init<T: Read>(reader: &mut T) -> Result<Header, WSError> {
+        let mut header = Header::default();
+        reader.read_exact(&mut header)?;
+        if header == WASM_HEADER {
+            return Ok(header);
+        }
+        if header == WASM_HEADER_COMPONENT {
+            debug!("Found a WASI component");
+            return Ok(header);
+        }
+        Err(WSError::UnsupportedModuleType)
+    }
+
     /// Return an iterator over the sections of a WebAssembly module.    
     ///
     /// The module is read in a streaming fashion, and doesn't have to be fully loaded into memory.
     pub fn stream<T: Read>(reader: &mut T) -> Result<SectionsIterator<T>, WSError> {
-        let mut header = [0u8; 8];
-        reader.read_exact(&mut header)?;
-        if header != WASM_HEADER {
-            return Err(WSError::ParseError);
-        }
         Ok(SectionsIterator { reader })
     }
 }
