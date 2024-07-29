@@ -13,7 +13,7 @@ categories = ["cryptography", "wasm"]
 
 [[bin]]
 name = "wasmsign2"
-path = "src/cli/main.rs"
+path = "src/bin/main.rs"
 
 [dependencies]
 clap = { version = "3.2.25", default-features = false, features = [
