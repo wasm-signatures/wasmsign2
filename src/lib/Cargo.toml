@@ -12,15 +12,15 @@ repository = "https://github.com/wasm-signatures/wasmsign2"
 categories = ["cryptography", "wasm"]
 
 [dependencies]
-anyhow = "1.0.79"
-ct-codecs = "1.1.1"
+anyhow = "1.0.89"
+ct-codecs = "1.1.2"
 ed25519-compact = { version = "2.1.1", features = ["pem"] }
-getrandom = { version = "0.2.12", features = ["js"] }
+getrandom = { version = "0.2.15", features = ["js"] }
 hmac-sha256 = "1.1.7"
-log = "0.4.20"
-regex = "1.10.3"
+log = "0.4.22"
+regex = "1.10.6"
 ssh-keys = "0.1.4"
-thiserror = "1.0.56"
+thiserror = "1.0.64"
 
 [profile.release]
 codegen-units = 1
