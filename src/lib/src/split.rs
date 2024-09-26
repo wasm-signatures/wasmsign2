@@ -58,7 +58,6 @@ impl Module {
             }
         }
         Ok(Module {
-            header: self.header,
             sections: out_sections,
         })
     }
