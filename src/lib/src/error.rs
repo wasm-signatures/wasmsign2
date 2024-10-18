@@ -19,6 +19,9 @@ pub enum WSError {
     #[error("Ed25519 signature function error")]
     CryptoError(#[from] ed25519_compact::Error),
 
+    #[error("Unsupported module type")]
+    UnsupportedModuleType,
+
     #[error("No valid signatures")]
     VerificationFailed,
 
