@@ -11,9 +11,13 @@ mod signature;
 mod split;
 mod wasm_module;
 
+#[allow(unused_imports)]
 pub use error::*;
+#[allow(unused_imports)]
 pub use signature::*;
+#[allow(unused_imports)]
 pub use split::*;
+#[allow(unused_imports)]
 pub use wasm_module::*;
 
 pub mod reexports {
