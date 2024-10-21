@@ -74,8 +74,8 @@ impl PublicKey {
         reader: &mut impl Read,
         detached_signature: Option<&[u8]>,
     ) -> Result<(), WSError> {
-        let _header = Module::stream_init(reader)?;
-        let mut sections = Module::stream(reader)?;
+        let stream = Module::stream_init(reader)?;
+        let mut sections = Module::stream(stream)?;
 
         // Read the signature header from the module, or reconstruct it from the detached signature.
         let signature_header_section = if let Some(detached_signature) = &detached_signature {
@@ -147,8 +147,7 @@ impl PublicKeySet {
         reader: &mut impl Read,
         detached_signature: Option<&[u8]>,
     ) -> Result<HashSet<&PublicKey>, WSError> {
-        let _header = Module::stream_init(reader)?;
-        let mut sections = Module::stream(reader)?;
+        let mut sections = Module::stream(Module::stream_init(reader)?)?;
 
         // Read the signature header from the module, or reconstruct it from the detached signature.
         let signature_header: &Section;

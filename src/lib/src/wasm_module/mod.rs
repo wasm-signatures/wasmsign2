@@ -373,8 +373,9 @@ pub struct Module {
 impl Module {
     /// Deserialize a WebAssembly module from the given reader.
     pub fn deserialize(reader: &mut impl Read) -> Result<Self, WSError> {
-        let header = Self::stream_init(reader)?;
-        let it = Self::stream(reader)?;
+        let stream = Self::stream_init(reader)?;
+        let header = stream.header;
+        let it = Self::stream(stream)?;
         let mut sections = Vec::new();
         for section in it {
             sections.push(section?);
@@ -404,21 +405,30 @@ impl Module {
     }
 
     /// Parse the module's header. This function must be called before `stream()`.
-    pub fn stream_init<T: Read>(reader: &mut T) -> Result<Header, WSError> {
+    pub fn stream_init<T: Read>(reader: &mut T) -> Result<InitialModuleStream<T>, WSError> {
         let mut header = Header::default();
-        reader.read_exact(&mut header);
+        reader.read_exact(&mut header)?;
         if header != WASM_HEADER && header != WASM_COMPONENT_HEADER {
             return Err(WSError::UnsupportedModuleType);
         }
-        Ok(header)
+        Ok(InitialModuleStream { reader, header })
     }
 
     /// Return an iterator over the sections of a WebAssembly module.    
     ///
     /// The module is read in a streaming fashion, and doesn't have to be fully loaded into memory.
-    pub fn stream<T: Read>(reader: &mut T) -> Result<SectionsIterator<T>, WSError> {
-        Ok(SectionsIterator { reader })
+    pub fn stream<T: Read>(
+        initial_module_stream: InitialModuleStream<T>,
+    ) -> Result<SectionsIterator<T>, WSError> {
+        Ok(SectionsIterator {
+            reader: initial_module_stream.reader,
+        })
     }
+}
+
+pub struct InitialModuleStream<'t, T: Read> {
+    reader: &'t mut T,
+    header: Header,
 }
 
 /// An iterator over the sections of a WebAssembly module.
