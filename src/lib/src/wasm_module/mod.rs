@@ -373,7 +373,7 @@ pub struct Module {
 impl Module {
     /// Deserialize a WebAssembly module from the given reader.
     pub fn deserialize(reader: &mut impl Read) -> Result<Self, WSError> {
-        let stream = Self::read_from_stream(reader)?;
+        let stream = Self::init_from_reader(reader)?;
         let header = stream.header;
         let it = Self::iterate(stream)?;
         let mut sections = Vec::new();
@@ -405,7 +405,7 @@ impl Module {
     }
 
     /// Parse the module's header. This function must be called before `stream()`.
-    pub fn read_from_stream<T: Read>(reader: &mut T) -> Result<ModuleStreamReader<T>, WSError> {
+    pub fn init_from_reader<T: Read>(reader: &mut T) -> Result<ModuleStreamReader<T>, WSError> {
         let mut header = Header::default();
         reader.read_exact(&mut header)?;
         if header != WASM_HEADER && header != WASM_COMPONENT_HEADER {
