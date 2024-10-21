@@ -181,7 +181,7 @@ impl PublicKey {
     where
         P: FnMut(&Section) -> bool,
     {
-        let mut sections = Module::stream(Module::stream_init(reader)?)?.enumerate();
+        let mut sections = Module::iterate(Module::read_from_stream(reader)?)?.enumerate();
         let signature_header_section = if let Some(detached_signature) = &detached_signature {
             Section::Custom(CustomSection::new(
                 SIGNATURE_SECTION_HEADER_NAME.to_string(),

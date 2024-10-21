@@ -26,7 +26,7 @@ impl PublicKeySet {
         detached_signature: Option<&[u8]>,
         predicates: &[impl Fn(&Section) -> bool],
     ) -> Result<Vec<HashSet<&PublicKey>>, WSError> {
-        let mut sections = Module::stream(Module::stream_init(reader)?)?;
+        let mut sections = Module::iterate(Module::read_from_stream(reader)?)?;
         let signature_header_section = if let Some(detached_signature) = &detached_signature {
             Section::Custom(CustomSection::new(
                 SIGNATURE_SECTION_HEADER_NAME.to_string(),
