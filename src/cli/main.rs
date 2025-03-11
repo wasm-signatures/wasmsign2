@@ -563,8 +563,10 @@ fn get_pks_from_github(account: impl AsRef<str>) -> Result<String, WSError> {
     let response = ureq::get(&url)
         .call()
         .map_err(|_| WSError::UsageError("Keys couldn't be retrieved from GitHub"))?;
-    let mut s = vec![];
-    response.into_reader().read_to_end(&mut s)?;
+    let s = response
+        .into_body()
+        .read_to_vec()
+        .map_err(|_| WSError::UsageError("Keys couldn't be retrieved from GitHub"))?;
     String::from_utf8(s).map_err(|_| {
         WSError::UsageError("Unexpected characters in the public keys retrieved from GitHub")
     })
