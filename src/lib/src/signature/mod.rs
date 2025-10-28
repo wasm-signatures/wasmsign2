@@ -7,7 +7,9 @@ mod simple;
 
 pub use keys::*;
 pub use matrix::*;
+#[allow(unused_imports)]
 pub use multi::*;
+#[allow(unused_imports)]
 pub use simple::*;
 
 pub(crate) use hash::*;
