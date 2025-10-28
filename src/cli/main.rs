@@ -4,31 +4,28 @@ use wasmsign2::{
 
 use wasmsign2::reexports::log;
 
-#[macro_use]
-extern crate clap;
-
-use clap::{App, Arg};
+use clap::{command, Arg, Command};
 use regex::RegexBuilder;
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
 
 fn start() -> Result<(), WSError> {
-    let matches = app_from_crate!()
-        .arg(Arg::new("verbose").short('v').help("Verbose output"))
+    let matches = command!()
+        .arg(Arg::new("verbose").short('v').action(clap::ArgAction::SetTrue).help("Verbose output"))
         .arg(
             Arg::new("debug")
                 .short('d')
+                .action(clap::ArgAction::SetTrue)
                 .help("Prints debugging information"),
         )
         .subcommand(
-            App::new("keygen")
+            Command::new("keygen")
                 .about("Generate a new key pair")
                 .arg(
                     Arg::new("secret_key")
                         .value_name("secret_key_file")
                         .long("--secret-key")
                         .short('k')
-                        .multiple_occurrences(false)
                         .required(true)
                         .help("Secret key file"),
                 )
@@ -37,33 +34,30 @@ fn start() -> Result<(), WSError> {
                         .value_name("public_key_file")
                         .long("--public-key")
                         .short('K')
-                        .multiple_occurrences(false)
                         .required(true)
                         .help("Public key file"),
                 ),
         )
         .subcommand(
-            App::new("show")
+            Command::new("show")
                 .about("Print the structure of a module")
                 .arg(
                     Arg::new("in")
                         .value_name("input_file")
                         .long("--input-file")
                         .short('i')
-                        .multiple_occurrences(false)
                         .required(true)
                         .help("Input file"),
                 ),
         )
         .subcommand(
-            App::new("split")
+            Command::new("split")
                 .about("Add cutting points to a module to enable partial verification")
                 .arg(
                     Arg::new("in")
                         .value_name("input_file")
                         .long("--input-file")
                         .short('i')
-                        .multiple_occurrences(false)
                         .required(true)
                         .help("Input file"),
                 )
@@ -72,7 +66,6 @@ fn start() -> Result<(), WSError> {
                         .value_name("output_file")
                         .long("--output-file")
                         .short('o')
-                        .multiple_occurrences(false)
                         .required(true)
                         .help("Output file"),
                 )
@@ -81,19 +74,17 @@ fn start() -> Result<(), WSError> {
                         .long("--split")
                         .short('s')
                         .value_name("regex")
-                        .multiple_occurrences(false)
                         .help("Custom section names to be signed"),
                 ),
         )
         .subcommand(
-            App::new("sign")
+            Command::new("sign")
                 .about("Sign a module")
                 .arg(
                     Arg::new("in")
                         .value_name("input_file")
                         .long("--input-file")
                         .short('i')
-                        .multiple_occurrences(false)
                         .required(true)
                         .help("Input file"),
                 )
@@ -102,7 +93,6 @@ fn start() -> Result<(), WSError> {
                         .value_name("output_file")
                         .long("--output-file")
                         .short('o')
-                        .multiple_occurrences(false)
                         .required(true)
                         .help("Output file"),
                 )
@@ -111,7 +101,6 @@ fn start() -> Result<(), WSError> {
                         .value_name("secret_key_file")
                         .long("--secret-key")
                         .short('k')
-                        .multiple_occurrences(false)
                         .required(true)
                         .help("Secret key file"),
                 )
@@ -120,13 +109,13 @@ fn start() -> Result<(), WSError> {
                         .value_name("public_key_file")
                         .long("--public-key")
                         .short('K')
-                        .multiple_occurrences(false)
                         .help("Public key file"),
                 )
                 .arg(
                     Arg::new("ssh")
                         .long("--ssh")
                         .short('Z')
+                        .action(clap::ArgAction::SetTrue)
                         .help("Parse OpenSSH keys"),
                 )
                 .arg(
@@ -134,19 +123,17 @@ fn start() -> Result<(), WSError> {
                         .value_name("signature_file")
                         .long("--signature-file")
                         .short('S')
-                        .multiple_occurrences(false)
                         .help("Signature file"),
                 ),
         )
         .subcommand(
-            App::new("verify")
+            Command::new("verify")
                 .about("Verify a module's signature")
                 .arg(
                     Arg::new("in")
                         .value_name("input_file")
                         .long("--input-file")
                         .short('i')
-                        .multiple_occurrences(false)
                         .required(true)
                         .help("Input file"),
                 )
@@ -155,7 +142,6 @@ fn start() -> Result<(), WSError> {
                         .value_name("public_key_file")
                         .long("--public-key")
                         .short('K')
-                        .multiple_occurrences(false)
                         .required(false)
                         .help("Public key file"),
                 )
@@ -164,7 +150,6 @@ fn start() -> Result<(), WSError> {
                         .value_name("from_github")
                         .long("--from-github")
                         .short('G')
-                        .multiple_occurrences(false)
                         .required(false)
                         .help("GitHub account to retrieve public keys from"),
                 )
@@ -172,6 +157,7 @@ fn start() -> Result<(), WSError> {
                     Arg::new("ssh")
                         .long("--ssh")
                         .short('Z')
+                        .action(clap::ArgAction::SetTrue)
                         .help("Parse OpenSSH keys"),
                 )
                 .arg(
@@ -179,7 +165,6 @@ fn start() -> Result<(), WSError> {
                         .value_name("signature_file")
                         .long("--signature-file")
                         .short('S')
-                        .multiple_occurrences(false)
                         .help("Signature file"),
                 )
                 .arg(
@@ -187,19 +172,17 @@ fn start() -> Result<(), WSError> {
                         .long("--split")
                         .short('s')
                         .value_name("regex")
-                        .multiple_occurrences(false)
                         .help("Custom section names to be verified"),
                 ),
         )
         .subcommand(
-            App::new("detach")
+            Command::new("detach")
                 .about("Detach the signature from a module")
                 .arg(
                     Arg::new("in")
                         .value_name("input_file")
                         .long("--input-file")
                         .short('i')
-                        .multiple_occurrences(false)
                         .required(true)
                         .help("Input file"),
                 )
@@ -208,7 +191,6 @@ fn start() -> Result<(), WSError> {
                         .value_name("output_file")
                         .long("--output-file")
                         .short('o')
-                        .multiple_occurrences(false)
                         .required(true)
                         .help("Output file"),
                 )
@@ -217,20 +199,18 @@ fn start() -> Result<(), WSError> {
                         .value_name("signature_file")
                         .long("--signature-file")
                         .short('S')
-                        .multiple_occurrences(false)
                         .required(true)
                         .help("Signature file"),
                 ),
         )
         .subcommand(
-            App::new("attach")
+            Command::new("attach")
                 .about("Embed a detach signature into a module")
                 .arg(
                     Arg::new("in")
                         .value_name("input_file")
                         .long("--input-file")
                         .short('i')
-                        .multiple_occurrences(false)
                         .required(true)
                         .help("Input file"),
                 )
@@ -239,7 +219,6 @@ fn start() -> Result<(), WSError> {
                         .value_name("output_file")
                         .long("--output-file")
                         .short('o')
-                        .multiple_occurrences(false)
                         .required(true)
                         .help("Output file"),
                 )
@@ -248,20 +227,18 @@ fn start() -> Result<(), WSError> {
                         .value_name("signature_file")
                         .long("--signature-file")
                         .short('S')
-                        .multiple_occurrences(false)
                         .required(true)
                         .help("Signature file"),
                 ),
         )
         .subcommand(
-            App::new("verify_matrix")
+            Command::new("verify_matrix")
                 .about("Batch verification against multiple public keys")
                 .arg(
                     Arg::new("in")
                         .value_name("input_file")
                         .long("--input-file")
                         .short('i')
-                        .multiple_occurrences(false)
                         .required(true)
                         .help("Input file"),
                 )
@@ -270,7 +247,7 @@ fn start() -> Result<(), WSError> {
                         .value_name("public_key_files")
                         .long("--public-keys")
                         .short('K')
-                        .multiple_occurrences(true)
+                        .num_args(1..)
                         .required(false)
                         .help("Public key files"),
                 )
@@ -279,7 +256,6 @@ fn start() -> Result<(), WSError> {
                         .value_name("from_github")
                         .long("--from-github")
                         .short('G')
-                        .multiple_occurrences(false)
                         .required(false)
                         .help("GitHub account to retrieve public keys from"),
                 )
@@ -287,6 +263,7 @@ fn start() -> Result<(), WSError> {
                     Arg::new("ssh")
                         .long("--ssh")
                         .short('Z')
+                        .action(clap::ArgAction::SetTrue)
                         .help("Parse OpenSSH keys"),
                 )
                 .arg(
@@ -294,14 +271,13 @@ fn start() -> Result<(), WSError> {
                         .long("--split")
                         .short('s')
                         .value_name("regex")
-                        .multiple_occurrences(false)
                         .help("Custom section names to be verified"),
                 ),
         )
         .get_matches();
 
-    let verbose = matches.is_present("verbose");
-    let debug = matches.is_present("debug");
+    let verbose = matches.get_flag("verbose");
+    let debug = matches.get_flag("debug");
 
     env_logger::builder()
         .format_timestamp(None)
@@ -316,26 +292,26 @@ fn start() -> Result<(), WSError> {
         .init();
 
     if let Some(matches) = matches.subcommand_matches("show") {
-        let input_file = matches.value_of("in");
-        let input_file = input_file.ok_or(WSError::UsageError("Missing input file"))?;
+        let input_file = matches.get_one::<String>("in");
+        let input_file = input_file.ok_or(WSError::UsageError("Missing input file"))?.as_str();
         let module = Module::deserialize_from_file(input_file)?;
         module.show(verbose)?;
     } else if let Some(matches) = matches.subcommand_matches("keygen") {
         let kp = KeyPair::generate();
         let sk_file = matches
-            .value_of("secret_key")
-            .ok_or(WSError::UsageError("Missing secret key file"))?;
+            .get_one::<String>("secret_key")
+            .ok_or(WSError::UsageError("Missing secret key file"))?.as_str();
         let pk_file = matches
-            .value_of("public_key")
-            .ok_or(WSError::UsageError("Missing public key file"))?;
+            .get_one::<String>("public_key")
+            .ok_or(WSError::UsageError("Missing public key file"))?.as_str();
         kp.sk.to_file(sk_file)?;
         println!("Secret key saved to [{sk_file}]");
         kp.pk.to_file(pk_file)?;
         println!("Public key saved to [{pk_file}]");
     } else if let Some(matches) = matches.subcommand_matches("split") {
-        let input_file = matches.value_of("in");
-        let output_file = matches.value_of("out");
-        let splits = matches.value_of("splits");
+        let input_file = matches.get_one::<String>("in").map(|s| s.as_str());
+        let output_file = matches.get_one::<String>("out").map(|s| s.as_str());
+        let splits = matches.get_one::<String>("splits").map(|s| s.as_str());
         let input_file = input_file.ok_or(WSError::UsageError("Missing input file"))?;
         let output_file = output_file.ok_or(WSError::UsageError("Missing output file"))?;
         let signed_sections_rx = match splits {
@@ -367,19 +343,19 @@ fn start() -> Result<(), WSError> {
         println!("* Split module structure:\n");
         module.show(verbose)?;
     } else if let Some(matches) = matches.subcommand_matches("sign") {
-        let input_file = matches.value_of("in");
-        let output_file = matches.value_of("out");
-        let signature_file = matches.value_of("signature_file");
+        let input_file = matches.get_one::<String>("in").map(|s| s.as_str());
+        let output_file = matches.get_one::<String>("out").map(|s| s.as_str());
+        let signature_file = matches.get_one::<String>("signature_file").map(|s| s.as_str());
         let sk_file = matches
-            .value_of("secret_key")
-            .ok_or(WSError::UsageError("Missing secret key file"))?;
-        let sk = match matches.is_present("ssh") {
+            .get_one::<String>("secret_key")
+            .ok_or(WSError::UsageError("Missing secret key file"))?.as_str();
+        let sk = match matches.get_flag("ssh") {
             false => SecretKey::from_file(sk_file)?,
             true => SecretKey::from_openssh_file(sk_file)?,
         };
-        let pk_file = matches.value_of("public_key");
+        let pk_file = matches.get_one::<String>("public_key").map(|s| s.as_str());
         let key_id = if let Some(pk_file) = pk_file {
-            let pk = match matches.is_present("ssh") {
+            let pk = match matches.get_flag("ssh") {
                 false => PublicKey::from_file(pk_file)?,
                 true => PublicKey::from_openssh_file(pk_file)?,
             }
@@ -402,9 +378,9 @@ fn start() -> Result<(), WSError> {
         println!("* Signed module structure:\n");
         module.show(verbose)?;
     } else if let Some(matches) = matches.subcommand_matches("verify") {
-        let input_file = matches.value_of("in");
-        let signature_file = matches.value_of("signature_file");
-        let splits = matches.value_of("splits");
+        let input_file = matches.get_one::<String>("in").map(|s| s.as_str());
+        let signature_file = matches.get_one::<String>("signature_file").map(|s| s.as_str());
+        let splits = matches.get_one::<String>("splits").map(|s| s.as_str());
         let signed_sections_rx = match splits {
             None => None,
             Some(splits) => Some(
@@ -419,13 +395,13 @@ fn start() -> Result<(), WSError> {
                     .map_err(|_| WSError::InvalidArgument)?,
             ),
         };
-        let pk = if let Some(github_account) = matches.value_of("from_github") {
+        let pk = if let Some(github_account) = matches.get_one::<String>("from_github").map(|s| s.as_str()) {
             PublicKey::from_openssh(&get_pks_from_github(github_account)?)?
         } else {
             let pk_file = matches
-                .value_of("public_key")
-                .ok_or(WSError::UsageError("Missing public key file"))?;
-            match matches.is_present("ssh") {
+                .get_one::<String>("public_key")
+                .ok_or(WSError::UsageError("Missing public key file"))?.as_str();
+            match matches.get_flag("ssh") {
                 false => PublicKey::from_file(pk_file)?,
                 true => PublicKey::from_openssh_file(pk_file)?,
             }
@@ -453,9 +429,9 @@ fn start() -> Result<(), WSError> {
         }
         println!("Signature is valid.");
     } else if let Some(matches) = matches.subcommand_matches("detach") {
-        let input_file = matches.value_of("in");
-        let output_file = matches.value_of("out");
-        let signature_file = matches.value_of("signature_file");
+        let input_file = matches.get_one::<String>("in").map(|s| s.as_str());
+        let output_file = matches.get_one::<String>("out").map(|s| s.as_str());
+        let signature_file = matches.get_one::<String>("signature_file").map(|s| s.as_str());
         let input_file = input_file.ok_or(WSError::UsageError("Missing input file"))?;
         let output_file = output_file.ok_or(WSError::UsageError("Missing output file"))?;
         let signature_file =
@@ -466,9 +442,9 @@ fn start() -> Result<(), WSError> {
         module.serialize_to_file(output_file)?;
         println!("Signature is now detached.");
     } else if let Some(matches) = matches.subcommand_matches("attach") {
-        let input_file = matches.value_of("in");
-        let output_file = matches.value_of("out");
-        let signature_file = matches.value_of("signature_file");
+        let input_file = matches.get_one::<String>("in").map(|s| s.as_str());
+        let output_file = matches.get_one::<String>("out").map(|s| s.as_str());
+        let signature_file = matches.get_one::<String>("signature_file").map(|s| s.as_str());
         let input_file = input_file.ok_or(WSError::UsageError("Missing input file"))?;
         let output_file = output_file.ok_or(WSError::UsageError("Missing output file"))?;
         let signature_file =
@@ -480,9 +456,9 @@ fn start() -> Result<(), WSError> {
         module.serialize_to_file(output_file)?;
         println!("Signature is now embedded as a custom section.");
     } else if let Some(matches) = matches.subcommand_matches("verify_matrix") {
-        let input_file = matches.value_of("in");
-        let signature_file = matches.value_of("signature_file");
-        let splits = matches.value_of("splits");
+        let input_file = matches.get_one::<String>("in").map(|s| s.as_str());
+        let signature_file = matches.get_one::<String>("signature_file").map(|s| s.as_str());
+        let splits = matches.get_one::<String>("splits").map(|s| s.as_str());
         let signed_sections_rx = match splits {
             None => None,
             Some(splits) => Some(
@@ -497,24 +473,24 @@ fn start() -> Result<(), WSError> {
                     .map_err(|_| WSError::InvalidArgument)?,
             ),
         };
-        let pks = if let Some(github_account) = matches.value_of("from_github") {
+        let pks = if let Some(github_account) = matches.get_one::<String>("from_github").map(|s| s.as_str()) {
             PublicKeySet::from_openssh(&get_pks_from_github(github_account)?)?
         } else {
             let pk_files = matches
-                .values_of("public_keys")
+                .get_many::<String>("public_keys")
                 .ok_or(WSError::UsageError("Missing public key files"))?;
-            match matches.is_present("ssh") {
+            match matches.get_flag("ssh") {
                 false => {
                     let mut pks = std::collections::HashSet::new();
                     for pk_file in pk_files {
-                        let pk = PublicKey::from_file(pk_file)?;
+                        let pk = PublicKey::from_file(pk_file.as_str())?;
                         pks.insert(pk);
                     }
                     PublicKeySet::new(pks)
                 }
                 true => PublicKeySet::from_openssh_file(
                     pk_files
-                        .into_iter()
+                        .map(|s| s.as_str())
                         .next()
                         .ok_or(WSError::UsageError("Missing public keys file"))?,
                 )?,

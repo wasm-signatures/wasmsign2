@@ -171,7 +171,7 @@ impl SignatureData {
 
 pub fn new_delimiter_section() -> Result<Section, WSError> {
     let mut custom_payload = vec![0u8; 16];
-    getrandom::getrandom(&mut custom_payload)
+    getrandom::fill(&mut custom_payload)
         .map_err(|_| WSError::InternalError("RNG error".to_string()))?;
     Ok(Section::Custom(CustomSection::new(
         SIGNATURE_SECTION_DELIMITER_NAME.to_string(),
