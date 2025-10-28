@@ -405,7 +405,7 @@ impl Module {
     }
 
     /// Parse the module's header. This function must be called before `stream()`.
-    pub fn init_from_reader<T: Read>(reader: &mut T) -> Result<ModuleStreamReader<T>, WSError> {
+    pub fn init_from_reader<T: Read>(reader: &mut T) -> Result<ModuleStreamReader<'_, T>, WSError> {
         let mut header = Header::default();
         reader.read_exact(&mut header)?;
         if header != WASM_HEADER && header != WASM_COMPONENT_HEADER {
