@@ -11,6 +11,7 @@ pub use matrix::*;
 pub use multi::*;
 #[allow(unused_imports)]
 pub use simple::*;
+pub use sig_sections::{SignatureData, SignedHashes, SignatureForHashes};
 
 pub(crate) use hash::*;
 pub(crate) use sig_sections::*;
