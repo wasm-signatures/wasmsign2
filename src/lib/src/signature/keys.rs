@@ -245,6 +245,33 @@ impl SecretKey {
         fp.read_to_string(&mut lines)?;
         Self::from_openssh(&lines)
     }
+
+    /// Try to guess the secret key format.
+    pub fn from_any(data: &[u8]) -> Result<Self, WSError> {
+        if let Ok(sk) = Self::from_bytes(data) {
+            return Ok(sk);
+        }
+        if let Ok(sk) = Self::from_der(data) {
+            return Ok(sk);
+        }
+        let s = str::from_utf8(data).map_err(|_| WSError::ParseError)?;
+        if let Ok(sk) = Self::from_pem(s) {
+            return Ok(sk);
+        }
+        #[cfg(feature = "openssh")]
+        if let Ok(sk) = Self::from_openssh(s) {
+            return Ok(sk);
+        }
+        Err(WSError::ParseError)
+    }
+
+    /// Load a key from a file, trying to guess its format.
+    pub fn from_any_file(file: impl AsRef<Path>) -> Result<Self, WSError> {
+        let mut fp = File::open(file)?;
+        let mut bytes = vec![];
+        fp.read_to_end(&mut bytes)?;
+        Self::from_any(&bytes)
+    }
 }
 
 impl fmt::Debug for SecretKey {
