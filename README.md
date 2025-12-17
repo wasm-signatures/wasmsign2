@@ -57,27 +57,22 @@ cargo install wasmsign2-cli
 ## Usage
 
 ```text
-USAGE:
-    wasmsign2 [FLAGS] [SUBCOMMAND]
+Commands:
+  keygen         Generate a new key pair
+  show           Print the structure of a module
+  split          Add cutting points to a module to enable partial verification
+  sign           Sign a module
+  verify         Verify a module's signature
+  detach         Detach the signature from a module
+  attach         Embed a detach signature into a module
+  verify_matrix  Batch verification against multiple public keys
+  help           Print this message or the help of the given subcommand(s)
 
-FLAGS:
-    -d               Print debugging information
-    -h, --help       Prints help information
-    -V, --version    Prints version information
-    -v               Verbose output
-
-SUBCOMMANDS:
-    attach           Embed a detach signature into a module
-    detach           Detach the signature from a module
-    help             Prints this message or the help of the given
-                     subcommand(s)
-    keygen           Generate a new key pair
-    show             Print the structure of a module
-    sign             Sign a module
-    split            Add cutting points to a module to enable partial
-                     verification
-    verify           Verify a module's signatures
-    verify_matrix    Batch verification against multiple public keys
+Options:
+  -v             Verbose output
+  -d             Prints debugging information
+  -h, --help     Print help
+  -V, --version  Print version
 ```
 
 ## Inspecting a module
@@ -284,5 +279,5 @@ wasmsign2 verify -G example_account -i z2.wasm
 ```
 
 ```sh
-wasmsign2 matrix_verify -G example_account -i z2.wasm
+wasmsign2 verify_matrix -G example_account -i z2.wasm
 ```
