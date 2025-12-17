@@ -4,7 +4,6 @@ Cargo.lock
 *.wasm
 *.key
 *.key2
-*.sh
 signature
 src/lib/target
 wasmsign2
