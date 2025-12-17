@@ -21,7 +21,7 @@ pub use split::*;
 pub use wasm_module::*;
 
 pub mod reexports {
-    pub use {anyhow, ct_codecs, getrandom, hmac_sha256, log, regex, thiserror};
+    pub use {ct_codecs, getrandom, hmac_sha256, log, thiserror};
 }
 
 const SIGNATURE_WASM_DOMAIN: &str = "wasmsig";

@@ -24,7 +24,7 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("secret_key")
                         .value_name("secret_key_file")
-                        .long("--secret-key")
+                        .long("secret-key")
                         .short('k')
                         .required(true)
                         .help("Secret key file"),
@@ -32,7 +32,7 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("public_key")
                         .value_name("public_key_file")
-                        .long("--public-key")
+                        .long("public-key")
                         .short('K')
                         .required(true)
                         .help("Public key file"),
@@ -44,7 +44,7 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("in")
                         .value_name("input_file")
-                        .long("--input-file")
+                        .long("input-file")
                         .short('i')
                         .required(true)
                         .help("Input file"),
@@ -56,7 +56,7 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("in")
                         .value_name("input_file")
-                        .long("--input-file")
+                        .long("input-file")
                         .short('i')
                         .required(true)
                         .help("Input file"),
@@ -64,14 +64,14 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("out")
                         .value_name("output_file")
-                        .long("--output-file")
+                        .long("output-file")
                         .short('o')
                         .required(true)
                         .help("Output file"),
                 )
                 .arg(
                     Arg::new("splits")
-                        .long("--split")
+                        .long("split")
                         .short('s')
                         .value_name("regex")
                         .help("Custom section names to be signed"),
@@ -83,7 +83,7 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("in")
                         .value_name("input_file")
-                        .long("--input-file")
+                        .long("input-file")
                         .short('i')
                         .required(true)
                         .help("Input file"),
@@ -91,7 +91,7 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("out")
                         .value_name("output_file")
-                        .long("--output-file")
+                        .long("output-file")
                         .short('o')
                         .required(true)
                         .help("Output file"),
@@ -99,7 +99,7 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("secret_key")
                         .value_name("secret_key_file")
-                        .long("--secret-key")
+                        .long("secret-key")
                         .short('k')
                         .required(true)
                         .help("Secret key file"),
@@ -107,13 +107,13 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("public_key")
                         .value_name("public_key_file")
-                        .long("--public-key")
+                        .long("public-key")
                         .short('K')
                         .help("Public key file"),
                 )
                 .arg(
                     Arg::new("ssh")
-                        .long("--ssh")
+                        .long("ssh")
                         .short('Z')
                         .action(clap::ArgAction::SetTrue)
                         .help("Parse OpenSSH keys"),
@@ -121,7 +121,7 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("signature_file")
                         .value_name("signature_file")
-                        .long("--signature-file")
+                        .long("signature-file")
                         .short('S')
                         .help("Signature file"),
                 ),
@@ -132,7 +132,7 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("in")
                         .value_name("input_file")
-                        .long("--input-file")
+                        .long("input-file")
                         .short('i')
                         .required(true)
                         .help("Input file"),
@@ -140,7 +140,7 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("public_key")
                         .value_name("public_key_file")
-                        .long("--public-key")
+                        .long("public-key")
                         .short('K')
                         .required(false)
                         .help("Public key file"),
@@ -148,14 +148,14 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("from_github")
                         .value_name("from_github")
-                        .long("--from-github")
+                        .long("from-github")
                         .short('G')
                         .required(false)
                         .help("GitHub account to retrieve public keys from"),
                 )
                 .arg(
                     Arg::new("ssh")
-                        .long("--ssh")
+                        .long("ssh")
                         .short('Z')
                         .action(clap::ArgAction::SetTrue)
                         .help("Parse OpenSSH keys"),
@@ -163,13 +163,13 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("signature_file")
                         .value_name("signature_file")
-                        .long("--signature-file")
+                        .long("signature-file")
                         .short('S')
                         .help("Signature file"),
                 )
                 .arg(
                     Arg::new("splits")
-                        .long("--split")
+                        .long("split")
                         .short('s')
                         .value_name("regex")
                         .help("Custom section names to be verified"),
@@ -181,7 +181,7 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("in")
                         .value_name("input_file")
-                        .long("--input-file")
+                        .long("input-file")
                         .short('i')
                         .required(true)
                         .help("Input file"),
@@ -189,7 +189,7 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("out")
                         .value_name("output_file")
-                        .long("--output-file")
+                        .long("output-file")
                         .short('o')
                         .required(true)
                         .help("Output file"),
@@ -197,7 +197,7 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("signature_file")
                         .value_name("signature_file")
-                        .long("--signature-file")
+                        .long("signature-file")
                         .short('S')
                         .required(true)
                         .help("Signature file"),
@@ -209,7 +209,7 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("in")
                         .value_name("input_file")
-                        .long("--input-file")
+                        .long("input-file")
                         .short('i')
                         .required(true)
                         .help("Input file"),
@@ -217,7 +217,7 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("out")
                         .value_name("output_file")
-                        .long("--output-file")
+                        .long("output-file")
                         .short('o')
                         .required(true)
                         .help("Output file"),
@@ -225,7 +225,7 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("signature_file")
                         .value_name("signature_file")
-                        .long("--signature-file")
+                        .long("signature-file")
                         .short('S')
                         .required(true)
                         .help("Signature file"),
@@ -237,7 +237,7 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("in")
                         .value_name("input_file")
-                        .long("--input-file")
+                        .long("input-file")
                         .short('i')
                         .required(true)
                         .help("Input file"),
@@ -245,7 +245,7 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("public_keys")
                         .value_name("public_key_files")
-                        .long("--public-keys")
+                        .long("public-keys")
                         .short('K')
                         .num_args(1..)
                         .required(false)
@@ -254,21 +254,21 @@ fn start() -> Result<(), WSError> {
                 .arg(
                     Arg::new("from_github")
                         .value_name("from_github")
-                        .long("--from-github")
+                        .long("from-github")
                         .short('G')
                         .required(false)
                         .help("GitHub account to retrieve public keys from"),
                 )
                 .arg(
                     Arg::new("ssh")
-                        .long("--ssh")
+                        .long("ssh")
                         .short('Z')
                         .action(clap::ArgAction::SetTrue)
                         .help("Parse OpenSSH keys"),
                 )
                 .arg(
                     Arg::new("splits")
-                        .long("--split")
+                        .long("split")
                         .short('s')
                         .value_name("regex")
                         .help("Custom section names to be verified"),
