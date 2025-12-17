@@ -11,7 +11,12 @@ use std::io::{prelude::*, BufReader};
 
 fn start() -> Result<(), WSError> {
     let matches = command!()
-        .arg(Arg::new("verbose").short('v').action(clap::ArgAction::SetTrue).help("Verbose output"))
+        .arg(
+            Arg::new("verbose")
+                .short('v')
+                .action(clap::ArgAction::SetTrue)
+                .help("Verbose output"),
+        )
         .arg(
             Arg::new("debug")
                 .short('d')
@@ -293,17 +298,21 @@ fn start() -> Result<(), WSError> {
 
     if let Some(matches) = matches.subcommand_matches("show") {
         let input_file = matches.get_one::<String>("in");
-        let input_file = input_file.ok_or(WSError::UsageError("Missing input file"))?.as_str();
+        let input_file = input_file
+            .ok_or(WSError::UsageError("Missing input file"))?
+            .as_str();
         let module = Module::deserialize_from_file(input_file)?;
         module.show(verbose)?;
     } else if let Some(matches) = matches.subcommand_matches("keygen") {
         let kp = KeyPair::generate();
         let sk_file = matches
             .get_one::<String>("secret_key")
-            .ok_or(WSError::UsageError("Missing secret key file"))?.as_str();
+            .ok_or(WSError::UsageError("Missing secret key file"))?
+            .as_str();
         let pk_file = matches
             .get_one::<String>("public_key")
-            .ok_or(WSError::UsageError("Missing public key file"))?.as_str();
+            .ok_or(WSError::UsageError("Missing public key file"))?
+            .as_str();
         kp.sk.to_file(sk_file)?;
         println!("Secret key saved to [{sk_file}]");
         kp.pk.to_file(pk_file)?;
@@ -345,10 +354,13 @@ fn start() -> Result<(), WSError> {
     } else if let Some(matches) = matches.subcommand_matches("sign") {
         let input_file = matches.get_one::<String>("in").map(|s| s.as_str());
         let output_file = matches.get_one::<String>("out").map(|s| s.as_str());
-        let signature_file = matches.get_one::<String>("signature_file").map(|s| s.as_str());
+        let signature_file = matches
+            .get_one::<String>("signature_file")
+            .map(|s| s.as_str());
         let sk_file = matches
             .get_one::<String>("secret_key")
-            .ok_or(WSError::UsageError("Missing secret key file"))?.as_str();
+            .ok_or(WSError::UsageError("Missing secret key file"))?
+            .as_str();
         let sk = match matches.get_flag("ssh") {
             false => SecretKey::from_file(sk_file)?,
             true => SecretKey::from_openssh_file(sk_file)?,
@@ -379,7 +391,9 @@ fn start() -> Result<(), WSError> {
         module.show(verbose)?;
     } else if let Some(matches) = matches.subcommand_matches("verify") {
         let input_file = matches.get_one::<String>("in").map(|s| s.as_str());
-        let signature_file = matches.get_one::<String>("signature_file").map(|s| s.as_str());
+        let signature_file = matches
+            .get_one::<String>("signature_file")
+            .map(|s| s.as_str());
         let splits = matches.get_one::<String>("splits").map(|s| s.as_str());
         let signed_sections_rx = match splits {
             None => None,
@@ -395,12 +409,15 @@ fn start() -> Result<(), WSError> {
                     .map_err(|_| WSError::InvalidArgument)?,
             ),
         };
-        let pk = if let Some(github_account) = matches.get_one::<String>("from_github").map(|s| s.as_str()) {
+        let pk = if let Some(github_account) =
+            matches.get_one::<String>("from_github").map(|s| s.as_str())
+        {
             PublicKey::from_openssh(&get_pks_from_github(github_account)?)?
         } else {
             let pk_file = matches
                 .get_one::<String>("public_key")
-                .ok_or(WSError::UsageError("Missing public key file"))?.as_str();
+                .ok_or(WSError::UsageError("Missing public key file"))?
+                .as_str();
             match matches.get_flag("ssh") {
                 false => PublicKey::from_file(pk_file)?,
                 true => PublicKey::from_openssh_file(pk_file)?,
@@ -431,7 +448,9 @@ fn start() -> Result<(), WSError> {
     } else if let Some(matches) = matches.subcommand_matches("detach") {
         let input_file = matches.get_one::<String>("in").map(|s| s.as_str());
         let output_file = matches.get_one::<String>("out").map(|s| s.as_str());
-        let signature_file = matches.get_one::<String>("signature_file").map(|s| s.as_str());
+        let signature_file = matches
+            .get_one::<String>("signature_file")
+            .map(|s| s.as_str());
         let input_file = input_file.ok_or(WSError::UsageError("Missing input file"))?;
         let output_file = output_file.ok_or(WSError::UsageError("Missing output file"))?;
         let signature_file =
@@ -444,7 +463,9 @@ fn start() -> Result<(), WSError> {
     } else if let Some(matches) = matches.subcommand_matches("attach") {
         let input_file = matches.get_one::<String>("in").map(|s| s.as_str());
         let output_file = matches.get_one::<String>("out").map(|s| s.as_str());
-        let signature_file = matches.get_one::<String>("signature_file").map(|s| s.as_str());
+        let signature_file = matches
+            .get_one::<String>("signature_file")
+            .map(|s| s.as_str());
         let input_file = input_file.ok_or(WSError::UsageError("Missing input file"))?;
         let output_file = output_file.ok_or(WSError::UsageError("Missing output file"))?;
         let signature_file =
@@ -457,7 +478,9 @@ fn start() -> Result<(), WSError> {
         println!("Signature is now embedded as a custom section.");
     } else if let Some(matches) = matches.subcommand_matches("verify_matrix") {
         let input_file = matches.get_one::<String>("in").map(|s| s.as_str());
-        let signature_file = matches.get_one::<String>("signature_file").map(|s| s.as_str());
+        let signature_file = matches
+            .get_one::<String>("signature_file")
+            .map(|s| s.as_str());
         let splits = matches.get_one::<String>("splits").map(|s| s.as_str());
         let signed_sections_rx = match splits {
             None => None,
@@ -473,7 +496,9 @@ fn start() -> Result<(), WSError> {
                     .map_err(|_| WSError::InvalidArgument)?,
             ),
         };
-        let pks = if let Some(github_account) = matches.get_one::<String>("from_github").map(|s| s.as_str()) {
+        let pks = if let Some(github_account) =
+            matches.get_one::<String>("from_github").map(|s| s.as_str())
+        {
             PublicKeySet::from_openssh(&get_pks_from_github(github_account)?)?
         } else {
             let pk_files = matches
