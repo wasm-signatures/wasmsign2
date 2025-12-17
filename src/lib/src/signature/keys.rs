@@ -1,6 +1,7 @@
 pub use crate::error::*;
 
 use ct_codecs::{Encoder, Hex};
+#[cfg(feature = "openssh")]
 use ssh_keys::{self, openssh};
 use std::collections::HashSet;
 use std::fs::File;
@@ -80,6 +81,7 @@ impl PublicKey {
     }
 
     /// Parse a single OpenSSH public key.
+    #[cfg(feature = "openssh")]
     pub fn from_openssh(lines: &str) -> Result<Self, WSError> {
         for line in lines.lines() {
             let line = line.trim();
@@ -95,6 +97,7 @@ impl PublicKey {
     }
 
     /// Parse a single OpenSSH public key from a file.
+    #[cfg(feature = "openssh")]
     pub fn from_openssh_file(file: impl AsRef<Path>) -> Result<Self, WSError> {
         let mut fp = File::open(file)?;
         let mut lines = String::new();
@@ -114,6 +117,7 @@ impl PublicKey {
         if let Ok(pk) = Self::from_pem(s) {
             return Ok(pk);
         }
+        #[cfg(feature = "openssh")]
         if let Ok(pk) = Self::from_openssh(s) {
             return Ok(pk);
         }
@@ -221,6 +225,7 @@ impl SecretKey {
     }
 
     /// Parse an OpenSSH secret key.
+    #[cfg(feature = "openssh")]
     pub fn from_openssh(lines: &str) -> Result<Self, WSError> {
         for sk in openssh::parse_private_key(lines).map_err(|_| WSError::ParseError)? {
             if let ssh_keys::PrivateKey::Ed25519(raw) = sk {
@@ -233,6 +238,7 @@ impl SecretKey {
     }
 
     /// Read an OpenSSH key from a file.
+    #[cfg(feature = "openssh")]
     pub fn from_openssh_file(file: impl AsRef<Path>) -> Result<Self, WSError> {
         let mut fp = File::open(file)?;
         let mut lines = String::new();
@@ -294,6 +300,7 @@ impl PublicKeySet {
     }
 
     /// Parse an OpenSSH public key set.
+    #[cfg(feature = "openssh")]
     pub fn from_openssh(lines: &str) -> Result<Self, WSError> {
         let mut pks = PublicKeySet::empty();
         for line in lines.lines() {
@@ -310,6 +317,7 @@ impl PublicKeySet {
     }
 
     /// Parse an OpenSSH public key set from a file.
+    #[cfg(feature = "openssh")]
     pub fn from_openssh_file(file: impl AsRef<Path>) -> Result<Self, WSError> {
         let mut fp = File::open(file)?;
         let mut lines = String::new();
@@ -337,6 +345,7 @@ impl PublicKeySet {
 
     /// Parse and add a key to the set, trying to guess its format.
     pub fn insert_any(&mut self, data: &[u8]) -> Result<(), WSError> {
+        #[cfg(feature = "openssh")]
         if let Ok(s) = str::from_utf8(data) {
             if let Ok(pk) = PublicKey::from_openssh(s) {
                 self.insert(pk)?;

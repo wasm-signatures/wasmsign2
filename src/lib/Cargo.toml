@@ -14,11 +14,16 @@ categories = ["cryptography", "wasm"]
 [dependencies]
 ct-codecs = "1.1.6"
 ed25519-compact = { version = "2.1.1", features = ["pem"] }
-getrandom = { version = "0.3.4", features = ["wasm_js"] }
+getrandom = "0.3.4"
 hmac-sha256 = "1.1.12"
 log = "0.4.28"
 ssh-keys = "0.1.4"
 thiserror = "2.0.17"
+
+[features]
+default = ["openssh", "wasm_js"]
+openssh = ["ssh-keys"]
+wasm_js = ["getrandom/wasm_js"]
 
 [profile.release]
 codegen-units = 1
