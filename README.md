@@ -64,7 +64,7 @@ Commands:
   sign           Sign a module
   verify         Verify a module's signature
   detach         Detach the signature from a module
-  attach         Embed a detach signature into a module
+  attach         Embed a detached signature into a module
   verify_matrix  Batch verification against multiple public keys
   help           Print this message or the help of the given subcommand(s)
 
@@ -212,7 +212,7 @@ wasmsign2 attach -i z2.wasm -o z3.wasm -S signature
 
 A signature can verify an entire module, but also one or more subsets of it.
 
-This requires "cutting points" to be defined before the signature process. It is impossible to verify a signature beyond cutting point boudaries.
+This requires "cutting points" to be defined before the signature process. It is impossible to verify a signature beyond cutting point boundaries.
 
 Cutting points can be added to a module with the `split` command:
 

@@ -210,7 +210,7 @@ fn start() -> Result<(), WSError> {
         )
         .subcommand(
             Command::new("attach")
-                .about("Embed a detach signature into a module")
+                .about("Embed a detached signature into a module")
                 .arg(
                     Arg::new("in")
                         .value_name("input_file")

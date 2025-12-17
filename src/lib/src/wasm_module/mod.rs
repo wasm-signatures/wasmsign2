@@ -414,7 +414,7 @@ impl Module {
         Ok(ModuleStreamReader { reader, header })
     }
 
-    /// Return an iterator over the sections of a WebAssembly module.    
+    /// Return an iterator over the sections of a WebAssembly module.
     ///
     /// The module is read in a streaming fashion, and doesn't have to be fully loaded into memory.
     pub fn iterate<T: Read>(

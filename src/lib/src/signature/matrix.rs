@@ -18,7 +18,7 @@ impl PublicKeySet {
     ///
     /// `predicates` is a set of predicates.
     ///
-    /// The function returns a vector which maps every predicate to a set public keys verifying a signature over sections matching the predicate.
+    /// The function returns a vector which maps every predicate to a set of public keys verifying a signature over sections matching the predicate.
     /// The vector is sorted by predicate index.
     pub fn verify_matrix(
         &self,
