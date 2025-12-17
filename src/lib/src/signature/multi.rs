@@ -101,7 +101,7 @@ impl SecretKey {
             SIGNATURE_VERSION,
             SIGNATURE_WASM_MODULE_CONTENT_TYPE,
             SIGNATURE_HASH_FUNCTION,
-            Hex::encode_to_string(&msg[SIGNATURE_WASM_DOMAIN.len() + 2..]).unwrap()
+            Hex::encode_to_string(&msg[SIGNATURE_WASM_DOMAIN.len() + 3..]).unwrap()
         );
 
         let signature = sk.sk.sign(msg, None).to_vec();
