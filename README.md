@@ -1,4 +1,4 @@
-[![GitHub CI](https://github.com/wasm-signatures/wasmsign2/actions/workflows/rust.yml/badge.svg)](https://github.com/wasm-signatures/wasmsign2/actions/workflows/rust.yml)
+[![GitHub CI](https://github.com/wasm-signatures/wasmsign2/actions/workflows/ci.yml/badge.svg)](https://github.com/wasm-signatures/wasmsign2/actions/workflows/ci.yml)
 [![docs.rs](https://docs.rs/wasmsign2/badge.svg)](https://docs.rs/wasmsign2/)
 [![crates.io](https://img.shields.io/crates/v/wasmsign2.svg)](https://crates.io/crates/wasmsign2)
 
