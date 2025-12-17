@@ -13,10 +13,10 @@ categories = ["cryptography", "wasm"]
 
 [dependencies]
 ct-codecs = "1.1.6"
-ed25519-compact = { version = "2.1.1", features = ["pem"] }
+ed25519-compact = { version = "2.2.0", features = ["pem"] }
 getrandom = "0.3.4"
 hmac-sha256 = "1.1.12"
-log = "0.4.28"
+log = "0.4.29"
 ssh-keys = { version = "0.1.4", optional = true }
 thiserror = "2.0.17"
 
