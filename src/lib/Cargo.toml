@@ -19,8 +19,12 @@ getrandom = { version = "0.3.4", features = ["wasm_js"] }
 hmac-sha256 = "1.1.12"
 log = "0.4.28"
 regex = "1.12.2"
-ssh-keys = "0.1.4"
+ssh-keys = { version = "0.1.4", optional = true }
 thiserror = "2.0.17"
+
+[features]
+default = ["openssh"]
+openssh = ["ssh-keys"]
 
 [profile.release]
 codegen-units = 1
