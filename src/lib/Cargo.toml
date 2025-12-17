@@ -17,7 +17,7 @@ ed25519-compact = { version = "2.1.1", features = ["pem"] }
 getrandom = "0.3.4"
 hmac-sha256 = "1.1.12"
 log = "0.4.28"
-ssh-keys = "0.1.4"
+ssh-keys = { version = "0.1.4", optional = true }
 thiserror = "2.0.17"
 
 [features]
