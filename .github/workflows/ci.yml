@@ -23,4 +23,4 @@ jobs:
     - name: Build release
       run: cargo build --release
     - name: Run functional tests
-      run: ./ci/run_all.sh
+      run: ./.ci/run_all.sh
