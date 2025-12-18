@@ -74,16 +74,12 @@ impl PublicKeySet {
             return Err(WSError::VerificationFailed);
         }
 
-        let mut section_sequence_must_be_signed_for_pks: HashMap<PublicKey, Option<bool>> =
-            HashMap::new();
+        let mut section_state_for_pks: HashMap<PublicKey, Option<bool>> = HashMap::new();
         for pk in valid_hashes_for_pks.keys() {
-            section_sequence_must_be_signed_for_pks.insert(pk.clone(), None);
+            section_state_for_pks.insert(pk.clone(), None);
         }
 
-        let mut verify_failures_for_predicates: Vec<HashSet<PublicKey>> = vec![];
-        for _predicate in predicates {
-            verify_failures_for_predicates.push(HashSet::new());
-        }
+        let mut verify_failures: Vec<HashSet<PublicKey>> = vec![HashSet::new(); predicates.len()];
 
         let mut hasher = Hash::new();
         for section in sections {
@@ -91,61 +87,52 @@ impl PublicKeySet {
             section.serialize(&mut hasher)?;
             if section.is_signature_delimiter() {
                 let h = hasher.finalize().to_vec();
-                for (pk, section_sequence_must_be_signed) in
-                    section_sequence_must_be_signed_for_pks.iter_mut()
-                {
-                    if let Some(false) = section_sequence_must_be_signed {
-                        *section_sequence_must_be_signed = None;
+                for (pk, state) in section_state_for_pks.iter_mut() {
+                    if *state == Some(false) {
+                        *state = None;
                         continue;
                     }
-                    let valid_hashes = match valid_hashes_for_pks.get(pk) {
-                        None => continue,
-                        Some(valid_hashes) => valid_hashes,
-                    };
-                    if !valid_hashes.contains(&h) {
-                        valid_hashes_for_pks.remove(pk);
+                    if let Some(valid_hashes) = valid_hashes_for_pks.get(pk) {
+                        if !valid_hashes.contains(&h) {
+                            valid_hashes_for_pks.remove(pk);
+                        }
                     }
-                    *section_sequence_must_be_signed = None;
+                    *state = None;
                 }
             } else {
                 for (idx, predicate) in predicates.iter().enumerate() {
                     let section_must_be_signed = predicate(&section);
-                    for (pk, section_sequence_must_be_signed) in
-                        section_sequence_must_be_signed_for_pks.iter_mut()
-                    {
-                        match section_sequence_must_be_signed {
-                            None => *section_sequence_must_be_signed = Some(section_must_be_signed),
-                            Some(false) if section_must_be_signed => {
-                                verify_failures_for_predicates[idx].insert(pk.clone());
+                    for (pk, state) in section_state_for_pks.iter_mut() {
+                        if let Some(expected) = *state {
+                            if section_must_be_signed != expected {
+                                verify_failures[idx].insert(pk.clone());
                             }
-                            Some(true) if !section_must_be_signed => {
-                                verify_failures_for_predicates[idx].insert(pk.clone());
-                            }
-                            _ => {}
+                        } else {
+                            *state = Some(section_must_be_signed);
                         }
                     }
                 }
             }
         }
 
-        let mut res: Vec<HashSet<&PublicKey>> = vec![];
-        for _predicate in predicates {
-            let mut result_for_predicate: HashSet<&PublicKey> = HashSet::new();
+        let mut results: Vec<HashSet<&PublicKey>> = Vec::new();
+        for (idx, _predicate) in predicates.iter().enumerate() {
+            let mut valid_for_predicate: HashSet<&PublicKey> = HashSet::new();
             for pk in &self.pks {
                 if !valid_hashes_for_pks.contains_key(pk) {
                     continue;
                 }
-                if !verify_failures_for_predicates[res.len()].contains(pk) {
-                    result_for_predicate.insert(pk);
+                if !verify_failures[idx].contains(pk) {
+                    valid_for_predicate.insert(pk);
                 }
             }
-            res.push(result_for_predicate);
+            results.push(valid_for_predicate);
         }
 
-        if res.is_empty() {
+        if results.is_empty() {
             debug!("No valid signatures");
             return Err(WSError::VerificationFailedForPredicates);
         }
-        Ok(res)
+        Ok(results)
     }
 }

@@ -68,21 +68,14 @@ impl Module {
     /// This function returns the module without the embedded signature,
     /// as well as the detached signature as a byte string.
     pub fn detach_signature(mut self) -> Result<(Module, Vec<u8>), WSError> {
-        let mut out_sections = vec![];
-        let mut sections = self.sections.into_iter();
-        let detached_signature = match sections.next() {
-            None => return Err(WSError::NoSignatures),
-            Some(section) => {
-                if !section.is_signature_header() {
-                    return Err(WSError::NoSignatures);
-                }
-                section.payload().to_vec()
-            }
-        };
-        for section in sections {
-            out_sections.push(section);
+        if self.sections.is_empty() {
+            return Err(WSError::NoSignatures);
         }
-        self.sections = out_sections;
+        let first_section = self.sections.remove(0);
+        if !first_section.is_signature_header() {
+            return Err(WSError::NoSignatures);
+        }
+        let detached_signature = first_section.payload().to_vec();
         debug!("Signature detached");
         Ok((self, detached_signature))
     }
@@ -90,20 +83,16 @@ impl Module {
     /// Embed a detached signature into a module.
     /// This function returns the module with embedded signature.
     pub fn attach_signature(mut self, detached_signature: &[u8]) -> Result<Module, WSError> {
-        let mut out_sections = vec![];
-        let sections = self.sections.into_iter();
+        for section in &self.sections {
+            if section.is_signature_header() {
+                return Err(WSError::SignatureAlreadyAttached);
+            }
+        }
         let signature_header = Section::Custom(CustomSection::new(
             SIGNATURE_SECTION_HEADER_NAME.to_string(),
             detached_signature.to_vec(),
         ));
-        out_sections.push(signature_header);
-        for section in sections {
-            if section.is_signature_header() {
-                return Err(WSError::SignatureAlreadyAttached);
-            }
-            out_sections.push(section);
-        }
-        self.sections = out_sections;
+        self.sections.insert(0, signature_header);
         debug!("Signature attached");
         Ok(self)
     }

@@ -3,22 +3,17 @@ use std::io::{self, prelude::*};
 use crate::error::*;
 
 pub fn get7(reader: &mut impl Read) -> Result<u8, WSError> {
-    let mut v: u8 = 0;
-    for i in 0..1 {
-        let mut byte = [0u8; 1];
-        if let Err(e) = reader.read_exact(&mut byte) {
-            return Err(if e.kind() == io::ErrorKind::UnexpectedEof {
-                WSError::Eof
-            } else {
-                e.into()
-            });
-        };
-        v |= (byte[0] & 0x7f) << (i * 7);
-        if (byte[0] & 0x80) == 0 {
-            return Ok(v);
+    let mut byte = [0u8; 1];
+    if let Err(e) = reader.read_exact(&mut byte) {
+        if e.kind() == io::ErrorKind::UnexpectedEof {
+            return Err(WSError::Eof);
         }
+        return Err(e.into());
     }
-    Err(WSError::ParseError)
+    if (byte[0] & 0x80) != 0 {
+        return Err(WSError::ParseError);
+    }
+    Ok(byte[0] & 0x7f)
 }
 
 pub fn get32(reader: &mut impl Read) -> Result<u32, WSError> {

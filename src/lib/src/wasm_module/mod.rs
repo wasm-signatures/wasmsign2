@@ -174,60 +174,41 @@ impl SectionLike for CustomSection {
             return format!("custom section: [{}]", self.name());
         }
 
-        match self.name() {
-            SIGNATURE_SECTION_DELIMITER_NAME => format!(
-                "custom section: [{}]\n- delimiter: [{}]\n",
-                self.name,
-                Hex::encode_to_string(self.payload()).unwrap()
-            ),
-            SIGNATURE_SECTION_HEADER_NAME => {
-                let signature_data = match SignatureData::deserialize(self.payload()) {
-                    Ok(signature_data) => signature_data,
-                    _ => return "undecodable signature header".to_string(),
-                };
-                let mut s = String::new();
-                writeln!(
-                    s,
-                    "- specification version: 0x{:02x}",
-                    signature_data.specification_version,
-                )
-                .unwrap();
-                writeln!(s, "- content_type: 0x{:02x}", signature_data.content_type,).unwrap();
-                writeln!(
-                    s,
-                    "- hash function: 0x{:02x} (SHA-256)",
-                    signature_data.hash_function
-                )
-                .unwrap();
-                writeln!(s, "- (hashes,signatures) set:").unwrap();
-                for signed_parts in &signature_data.signed_hashes_set {
-                    writeln!(s, "  - hashes:").unwrap();
-                    for hash in &signed_parts.hashes {
-                        writeln!(s, "    - [{}]", Hex::encode_to_string(hash).unwrap()).unwrap();
-                    }
-                    writeln!(s, "  - signatures:").unwrap();
-                    for signature in &signed_parts.signatures {
-                        write!(
-                            s,
-                            "    - [{}]",
-                            Hex::encode_to_string(&signature.signature).unwrap()
-                        )
-                        .unwrap();
-                        match &signature.key_id {
-                            None => writeln!(s, " (no key id)").unwrap(),
-                            Some(key_id) => writeln!(
-                                s,
-                                " (key id: [{}])",
-                                Hex::encode_to_string(key_id).unwrap()
-                            )
-                            .unwrap(),
-                        }
+        if self.name() == SIGNATURE_SECTION_DELIMITER_NAME {
+            let hex = Hex::encode_to_string(self.payload()).unwrap();
+            return format!("custom section: [{}]\n- delimiter: [{}]\n", self.name, hex);
+        }
+
+        if self.name() == SIGNATURE_SECTION_HEADER_NAME {
+            let signature_data = match SignatureData::deserialize(self.payload()) {
+                Ok(data) => data,
+                Err(_) => return "undecodable signature header".to_string(),
+            };
+            let mut s = String::new();
+            writeln!(s, "- specification version: 0x{:02x}", signature_data.specification_version).unwrap();
+            writeln!(s, "- content_type: 0x{:02x}", signature_data.content_type).unwrap();
+            writeln!(s, "- hash function: 0x{:02x} (SHA-256)", signature_data.hash_function).unwrap();
+            writeln!(s, "- (hashes,signatures) set:").unwrap();
+            for signed_parts in &signature_data.signed_hashes_set {
+                writeln!(s, "  - hashes:").unwrap();
+                for hash in &signed_parts.hashes {
+                    writeln!(s, "    - [{}]", Hex::encode_to_string(hash).unwrap()).unwrap();
+                }
+                writeln!(s, "  - signatures:").unwrap();
+                for signature in &signed_parts.signatures {
+                    let sig_hex = Hex::encode_to_string(&signature.signature).unwrap();
+                    if let Some(key_id) = &signature.key_id {
+                        let key_hex = Hex::encode_to_string(key_id).unwrap();
+                        writeln!(s, "    - [{}] (key id: [{}])", sig_hex, key_hex).unwrap();
+                    } else {
+                        writeln!(s, "    - [{}] (no key id)", sig_hex).unwrap();
                     }
                 }
-                format!("custom section: [{}]\n{}", self.name(), s)
             }
-            _ => format!("custom section: [{}]", self.name()),
+            return format!("custom section: [{}]\n{}", self.name(), s);
         }
+
+        format!("custom section: [{}]", self.name())
     }
 }
 
@@ -268,20 +249,17 @@ impl SectionLike for Section {
 impl Section {
     /// Create a new section with the given identifier and payload.
     pub fn new(id: SectionId, payload: Vec<u8>) -> Result<Self, WSError> {
-        match id {
-            SectionId::CustomSection => {
-                let mut reader = io::Cursor::new(payload);
-                let name_len = varint::get32(&mut reader)? as usize;
-                let mut name_slice = vec![0u8; name_len];
-                reader.read_exact(&mut name_slice)?;
-                let name = str::from_utf8(&name_slice)?.to_string();
-                let mut payload = Vec::new();
-                let len = reader.read_to_end(&mut payload)?;
-                payload.truncate(len);
-                Ok(Section::Custom(CustomSection::new(name, payload)))
-            }
-            _ => Ok(Section::Standard(StandardSection::new(id, payload))),
+        if id != SectionId::CustomSection {
+            return Ok(Section::Standard(StandardSection::new(id, payload)));
         }
+        let mut reader = io::Cursor::new(payload);
+        let name_len = varint::get32(&mut reader)? as usize;
+        let mut name_bytes = vec![0u8; name_len];
+        reader.read_exact(&mut name_bytes)?;
+        let name = str::from_utf8(&name_bytes)?.to_string();
+        let mut payload = Vec::new();
+        reader.read_to_end(&mut payload)?;
+        Ok(Section::Custom(CustomSection::new(name, payload)))
     }
 
     /// Create a section from its standard serialized representation.
@@ -316,18 +294,18 @@ impl Section {
 
     /// Return `true` if the section contains the module's signatures.
     pub fn is_signature_header(&self) -> bool {
-        match self {
-            Section::Standard(_) => false,
-            Section::Custom(s) => s.is_signature_header(),
+        if let Section::Custom(s) = self {
+            return s.is_signature_header();
         }
+        false
     }
 
     /// Return `true` if the section is a signature delimiter.
     pub fn is_signature_delimiter(&self) -> bool {
-        match self {
-            Section::Standard(_) => false,
-            Section::Custom(s) => s.is_signature_delimiter(),
+        if let Section::Custom(s) = self {
+            return s.is_signature_delimiter();
         }
+        false
     }
 }
 

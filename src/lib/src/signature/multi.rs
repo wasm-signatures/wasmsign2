@@ -36,32 +36,31 @@ impl SecretKey {
             out_sections.push(header_section);
         }
         let mut previous_signature_data = None;
-        let mut last_section_was_a_signature = false;
+        let mut last_was_delimiter = false;
         for (idx, section) in module.sections.iter().enumerate() {
-            if let Section::Custom(custom_section) = section {
-                if custom_section.is_signature_header() {
-                    debug!("A signature section was already present.");
-                    if idx != 0 {
-                        error!("The signature section was not the first module section");
-                        continue;
-                    }
-                    assert_eq!(previous_signature_data, None);
+            if section.is_signature_header() {
+                debug!("A signature section was already present.");
+                if idx != 0 {
+                    error!("The signature section was not the first module section");
+                    continue;
+                }
+                if let Section::Custom(custom_section) = section {
                     previous_signature_data = Some(custom_section.signature_data()?);
-                    continue;
                 }
-                if custom_section.is_signature_delimiter() {
-                    section.serialize(&mut hasher)?;
-                    out_sections.push(section.clone());
-                    hashes.push(hasher.finalize().to_vec());
-                    last_section_was_a_signature = true;
-                    continue;
-                }
-                last_section_was_a_signature = false;
+                continue;
+            }
+            if section.is_signature_delimiter() {
+                section.serialize(&mut hasher)?;
+                out_sections.push(section.clone());
+                hashes.push(hasher.finalize().to_vec());
+                last_was_delimiter = true;
+                continue;
             }
             section.serialize(&mut hasher)?;
             out_sections.push(section.clone());
+            last_was_delimiter = false;
         }
-        if !last_section_was_a_signature {
+        if !last_was_delimiter {
             hashes.push(hasher.finalize().to_vec());
         }
         let header_section =
@@ -113,17 +112,17 @@ impl SecretKey {
             alg_id: ED25519_PK_ID,
             signature,
         };
-        let mut signed_hashes_set = match &previous_signature_data {
-            None => vec![],
-            Some(previous_signature_data)
-                if previous_signature_data.specification_version == SIGNATURE_VERSION
-                    && previous_signature_data.content_type
-                        == SIGNATURE_WASM_MODULE_CONTENT_TYPE
-                    && previous_signature_data.hash_function == SIGNATURE_HASH_FUNCTION =>
+
+        let mut signed_hashes_set = if let Some(prev) = &previous_signature_data {
+            if prev.specification_version != SIGNATURE_VERSION
+                || prev.content_type != SIGNATURE_WASM_MODULE_CONTENT_TYPE
+                || prev.hash_function != SIGNATURE_HASH_FUNCTION
             {
-                previous_signature_data.signed_hashes_set.clone()
+                return Err(WSError::IncompatibleSignatureVersion);
             }
-            _ => return Err(WSError::IncompatibleSignatureVersion),
+            prev.signed_hashes_set.clone()
+        } else {
+            vec![]
         };
 
         let mut new_hashes = true;
@@ -240,15 +239,12 @@ impl PublicKey {
                 section_sequence_must_be_signed = None;
             } else {
                 let section_must_be_signed = predicate(&section);
-                match section_sequence_must_be_signed {
-                    None => section_sequence_must_be_signed = Some(section_must_be_signed),
-                    Some(false) if section_must_be_signed => {
+                if let Some(expected) = section_sequence_must_be_signed {
+                    if section_must_be_signed != expected {
                         return Err(WSError::VerificationFailedForPredicates);
                     }
-                    Some(true) if !section_must_be_signed => {
-                        return Err(WSError::VerificationFailedForPredicates);
-                    }
-                    _ => {}
+                } else {
+                    section_sequence_must_be_signed = Some(section_must_be_signed);
                 }
             }
         }
@@ -277,26 +273,16 @@ impl PublicKey {
                 msg.extend_from_slice(hash);
             }
             for signature in &signed_section_sequence.signatures {
-                match (&signature.key_id, &self.key_id) {
-                    (Some(signature_key_id), Some(pk_key_id)) if signature_key_id != pk_key_id => {
+                if let (Some(sig_key_id), Some(pk_key_id)) = (&signature.key_id, &self.key_id) {
+                    if sig_key_id != pk_key_id {
                         continue;
                     }
-                    _ => {}
                 }
-                if self
-                    .pk
-                    .verify(
-                        &msg,
-                        &ed25519_compact::Signature::from_slice(&signature.signature)?,
-                    )
-                    .is_err()
-                {
+                let sig = ed25519_compact::Signature::from_slice(&signature.signature)?;
+                if self.pk.verify(&msg, &sig).is_err() {
                     continue;
                 }
-                debug!(
-                    "Hash signature is valid for key [{}]",
-                    Hex::encode_to_string(*self.pk).unwrap()
-                );
+                debug!("Hash signature is valid for key [{}]", Hex::encode_to_string(*self.pk).unwrap());
                 for hash in hashes {
                     valid_hashes.insert(hash);
                 }

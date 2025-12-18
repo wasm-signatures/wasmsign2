@@ -49,25 +49,17 @@ impl SignatureForHashes {
 
     pub fn deserialize(bin: impl AsRef<[u8]>) -> Result<Self, WSError> {
         let mut reader = BufReader::new(bin.as_ref());
-        let key_id = varint::get_slice(&mut reader)?;
-        let key_id = if key_id.is_empty() {
-            None
-        } else {
-            Some(key_id)
-        };
-        let mut alg_id = [0u8; 1];
-        reader.read_exact(&mut alg_id)?;
-        let alg_id = alg_id[0];
+        let key_id_bytes = varint::get_slice(&mut reader)?;
+        let key_id = if key_id_bytes.is_empty() { None } else { Some(key_id_bytes) };
+        let mut alg_id_buf = [0u8; 1];
+        reader.read_exact(&mut alg_id_buf)?;
+        let alg_id = alg_id_buf[0];
         if alg_id != ED25519_PK_ID {
             debug!("Unsupported algorithm: {:02x}", alg_id);
             return Err(WSError::ParseError);
         }
         let signature = varint::get_slice(&mut reader)?;
-        Ok(Self {
-            key_id,
-            alg_id,
-            signature,
-        })
+        Ok(Self { key_id, alg_id, signature })
     }
 }
 

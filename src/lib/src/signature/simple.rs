@@ -116,20 +116,18 @@ impl PublicKey {
         let mut hasher = Hash::new();
         let mut buf = vec![0u8; 65536];
         loop {
-            match reader.read(&mut buf)? {
-                0 => break,
-                n => {
-                    hasher.update(&buf[..n]);
-                }
+            let n = reader.read(&mut buf)?;
+            if n == 0 {
+                break;
             }
+            hasher.update(&buf[..n]);
         }
         let h = hasher.finalize().to_vec();
 
-        if valid_hashes.contains(&h) {
-            Ok(())
-        } else {
-            Err(WSError::VerificationFailed)
+        if !valid_hashes.contains(&h) {
+            return Err(WSError::VerificationFailed);
         }
+        Ok(())
     }
 }
 
@@ -149,21 +147,16 @@ impl PublicKeySet {
     ) -> Result<HashSet<&PublicKey>, WSError> {
         let mut sections = Module::iterate(Module::init_from_reader(reader)?)?;
 
-        // Read the signature header from the module, or reconstruct it from the detached signature.
-        let signature_header: &Section;
-        let signature_header_from_detached_signature;
-        let signature_header_from_stream;
-        if let Some(detached_signature) = &detached_signature {
-            signature_header_from_detached_signature = Section::Custom(CustomSection::new(
+        let signature_header_section = if let Some(detached_signature) = detached_signature {
+            Section::Custom(CustomSection::new(
                 SIGNATURE_SECTION_HEADER_NAME.to_string(),
                 detached_signature.to_vec(),
-            ));
-            signature_header = &signature_header_from_detached_signature;
+            ))
         } else {
-            signature_header_from_stream = sections.next().ok_or(WSError::ParseError)??;
-            signature_header = &signature_header_from_stream;
-        }
-        let signature_header = match signature_header {
+            sections.next().ok_or(WSError::ParseError)??
+        };
+
+        let signature_header = match signature_header_section {
             Section::Custom(custom_section) if custom_section.is_signature_header() => {
                 custom_section
             }
@@ -173,31 +166,25 @@ impl PublicKeySet {
             }
         };
 
-        // Actual signature verification starts here.
         let signature_data = signature_header.signature_data()?;
         if signature_data.content_type != SIGNATURE_WASM_MODULE_CONTENT_TYPE {
-            debug!(
-                "Unsupported content type: {:02x}",
-                signature_data.content_type
-            );
+            debug!("Unsupported content type: {:02x}", signature_data.content_type);
             return Err(WSError::ParseError);
         }
         if signature_data.hash_function != SIGNATURE_HASH_FUNCTION {
-            debug!(
-                "Unsupported hash function: {:02x}",
-                signature_data.hash_function
-            );
+            debug!("Unsupported hash function: {:02x}", signature_data.hash_function);
             return Err(WSError::ParseError);
         }
+
         let signed_hashes_set = signature_data.signed_hashes_set;
-        let valid_hashes_for_pks: HashMap<&PublicKey, HashSet<&Vec<u8>>> = self
-            .pks
-            .iter()
-            .filter_map(|pk| match pk.valid_hashes_for_pk(&signed_hashes_set) {
-                Ok(valid_hashes) if !valid_hashes.is_empty() => Some((pk, valid_hashes)),
-                _ => None,
-            })
-            .collect();
+        let mut valid_hashes_for_pks: HashMap<&PublicKey, HashSet<&Vec<u8>>> = HashMap::new();
+        for pk in &self.pks {
+            if let Ok(valid_hashes) = pk.valid_hashes_for_pk(&signed_hashes_set) {
+                if !valid_hashes.is_empty() {
+                    valid_hashes_for_pks.insert(pk, valid_hashes);
+                }
+            }
+        }
         if valid_hashes_for_pks.is_empty() {
             debug!("No valid signatures");
             return Err(WSError::VerificationFailed);
@@ -206,14 +193,14 @@ impl PublicKeySet {
         let mut hasher = Hash::new();
         let mut buf = vec![0u8; 65536];
         loop {
-            match reader.read(&mut buf)? {
-                0 => break,
-                n => {
-                    hasher.update(&buf[..n]);
-                }
+            let n = reader.read(&mut buf)?;
+            if n == 0 {
+                break;
             }
+            hasher.update(&buf[..n]);
         }
         let h = hasher.finalize().to_vec();
+
         let mut valid_pks = HashSet::new();
         for (pk, valid_hashes) in valid_hashes_for_pks {
             if valid_hashes.contains(&h) {
