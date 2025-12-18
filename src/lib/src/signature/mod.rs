@@ -1,10 +1,12 @@
 mod hash;
+mod info;
 mod keys;
 mod matrix;
 mod multi;
 mod sig_sections;
 mod simple;
 
+pub use info::*;
 pub use keys::*;
 pub use matrix::*;
 #[allow(unused_imports)]
