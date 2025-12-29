@@ -9,6 +9,20 @@ use std::io::{self, prelude::*, BufReader, BufWriter};
 use std::path::Path;
 use std::str;
 
+fn escape_for_terminal(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    for c in s.chars() {
+        match c {
+            '\t' | '\n' | '\r' => result.push(c),
+            '\x00'..='\x1f' | '\x7f' => {
+                write!(result, "\\x{:02x}", c as u8).unwrap();
+            }
+            _ => result.push(c),
+        }
+    }
+    result
+}
+
 const WASM_HEADER: [u8; 8] = [0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00];
 const WASM_COMPONENT_HEADER: [u8; 8] = [0x00, 0x61, 0x73, 0x6d, 0x0d, 0x00, 0x01, 0x00];
 pub type Header = [u8; 8];
@@ -170,13 +184,14 @@ impl SectionLike for CustomSection {
     }
 
     fn display(&self, verbose: bool) -> String {
+        let escaped_name = escape_for_terminal(self.name());
         if !verbose {
-            return format!("custom section: [{}]", self.name());
+            return format!("custom section: [{}]", escaped_name);
         }
 
         if self.name() == SIGNATURE_SECTION_DELIMITER_NAME {
             let hex = Hex::encode_to_string(self.payload()).unwrap();
-            return format!("custom section: [{}]\n- delimiter: [{}]\n", self.name, hex);
+            return format!("custom section: [{}]\n- delimiter: [{}]\n", escaped_name, hex);
         }
 
         if self.name() == SIGNATURE_SECTION_HEADER_NAME {
@@ -205,10 +220,10 @@ impl SectionLike for CustomSection {
                     }
                 }
             }
-            return format!("custom section: [{}]\n{}", self.name(), s);
+            return format!("custom section: [{}]\n{}", escaped_name, s);
         }
 
-        format!("custom section: [{}]", self.name())
+        format!("custom section: [{}]", escaped_name)
     }
 }
 
@@ -423,5 +438,32 @@ impl<'t, T: Read> Iterator for SectionsIterator<'t, T> {
             Ok(None) => None,
             Ok(Some(section)) => Some(Ok(section)),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_escape_for_terminal() {
+        assert_eq!(escape_for_terminal("normal"), "normal");
+        assert_eq!(escape_for_terminal("with space"), "with space");
+        assert_eq!(escape_for_terminal("tab\there"), "tab\there");
+        assert_eq!(escape_for_terminal("line\nbreak"), "line\nbreak");
+        assert_eq!(escape_for_terminal("\x1b[31mred\x1b[0m"), "\\x1b[31mred\\x1b[0m");
+        assert_eq!(escape_for_terminal("bell\x07here"), "bell\\x07here");
+        assert_eq!(escape_for_terminal("null\x00byte"), "null\\x00byte");
+        assert_eq!(escape_for_terminal("del\x7fchar"), "del\\x7fchar");
+        assert_eq!(escape_for_terminal("\x1b]0;title\x07"), "\\x1b]0;title\\x07");
+    }
+
+    #[test]
+    fn test_custom_section_display_escapes_name() {
+        let malicious_name = "\x1b[31mEVIL\x1b[0m";
+        let section = CustomSection::new(malicious_name.to_string(), vec![]);
+        let display = section.display(false);
+        assert!(!display.contains("\x1b"));
+        assert!(display.contains("\\x1b"));
     }
 }
