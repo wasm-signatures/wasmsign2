@@ -1,6 +1,6 @@
 [package]
 name = "wasmsign2-cli"
-version = "0.2.7"
+version = "0.2.8"
 edition = "2021"
 authors = ["Frank Denis <github@pureftpd.org>"]
 description = "Command-line tool for signing and verifying WebAssembly modules, with embedded or detached signatures and OpenSSH keys"
@@ -16,18 +16,18 @@ name = "wasmsign2"
 path = "src/cli/main.rs"
 
 [dependencies]
-clap = { version = "4.5.53", default-features = false, features = [
+clap = { version = "4.6.7", default-features = false, features = [
     "std",
     "cargo",
     "wrap_help",
 ] }
-env_logger = { version = "0.11.8", default-features = false, features = [
+env_logger = { version = "0.11.11", default-features = false, features = [
     "humantime",
 ] }
-regex = "1.12.2"
-ureq = "3.1.4"
+regex = "1.13.1"
+ureq = "3.4.2"
 uri_encode = "1.0.4"
-wasmsign2 = { version = "0.2.7", path = "src/lib" }
+wasmsign2 = { version = "0.2.8", path = "src/lib" }
 
 [profile.release]
 codegen-units = 1

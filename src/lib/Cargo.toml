@@ -1,6 +1,6 @@
 [package]
 name = "wasmsign2"
-version = "0.2.7"
+version = "0.2.8"
 edition = "2021"
 authors = ["Frank Denis <github@pureftpd.org>"]
 description = "WebAssembly module signing and signature verification with embedded or detached signatures and OpenSSH keys"
@@ -12,13 +12,13 @@ repository = "https://github.com/wasm-signatures/wasmsign2"
 categories = ["cryptography", "wasm"]
 
 [dependencies]
-ct-codecs = "1.1.6"
-ed25519-compact = { version = "2.2.0", features = ["pem"] }
+ct-codecs = "1.1.7"
+ed25519-compact = { version = "2.5.0", features = ["pem"] }
 getrandom = "0.3.4"
-hmac-sha256 = "1.1.12"
-log = "0.4.29"
+hmac-sha256 = "1.1.14"
+log = "0.4.34"
 ssh-keys = { version = "0.1.4", optional = true }
-thiserror = "2.0.17"
+thiserror = "2.0.21"
 
 [features]
 default = ["openssh", "wasm_js"]
